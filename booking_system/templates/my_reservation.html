@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}My Reservation — Grand Choice Inn & Suites{% endblock %}
+
+{% block content %}
+
+<div class="bg-navy text-white py-12 text-center">
+  <h1 class="font-serif text-4xl font-bold">My Reservation</h1>
+  <p class="text-gray-300 mt-2 text-sm">Look up or manage your booking</p>
+</div>
+
+<div class="max-w-xl mx-auto px-4 py-14">
+
+  <!-- Lookup Form -->
+  <div id="lookup-section" class="bg-white rounded-2xl shadow-lg p-8">
+    <h2 class="font-serif text-xl text-navy font-semibold mb-1">Find Your Reservation</h2>
+    <p class="text-gray-500 text-sm mb-6">Enter the confirmation code you received at booking.</p>
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 mb-1">Confirmation Code</label>
+      <input type="text" id="conf-code-input" placeholder="e.g. GCI-2026-AB1234"
+             class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm uppercase tracking-wider"
+             oninput="this.value=this.value.toUpperCase()" />
+    </div>
+    <div id="lookup-error" class="mt-2 text-red-600 text-sm hidden"></div>
+    <button onclick="lookupReservation()" id="lookup-btn" class="btn-gold mt-5 w-full py-3 rounded font-semibold text-sm">Look Up Reservation</button>
+    <div class="mt-5 text-center text-sm text-gray-400">
+      Don't have a reservation yet? <a href="/book" class="text-gold hover:underline">Book now</a>
+    </div>
+  </div>
+
+  <!-- Reservation Details -->
+  <div id="res-details" class="hidden">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <!-- Header -->
+      <div id="res-status-bar" class="bg-green-600 text-white px-6 py-3 flex items-center justify-between text-sm">
+        <span id="res-status-label">✓ Reservation Confirmed</span>
+        <span id="res-conf-code" class="font-bold tracking-wider"></span>
+      </div>
+      <div class="p-8">
+        <h2 class="font-serif text-xl text-navy font-semibold mb-5">Reservation Details</h2>
+        <div id="res-info" class="space-y-3 text-sm"></div>
+
+        <!-- Cancel section -->
+        <div id="cancel-section" class="mt-8 pt-6 border-t border-gray-100">
+          <p class="text-xs text-gray-400 mb-3">Free cancellation up to 24 hours before check-in.</p>
+          <button onclick="showCancelConfirm()" id="cancel-btn"
+                  class="text-red-600 border border-red-300 px-5 py-2 rounded text-sm font-semibold hover:bg-red-50 transition-colors">
+            Cancel Reservation
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="resetLookup()" class="mt-5 w-full text-center text-sm text-gray-500 hover:text-navy">← Look up another reservation</button>
+  </div>
+
+</div>
+
+<!-- Cancel Confirm Modal -->
+<div id="cancel-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center">
+    <div class="text-4xl mb-4">⚠️</div>
+    <h3 class="font-serif text-xl text-navy font-bold mb-2">Cancel Reservation?</h3>
+    <p id="cancel-modal-msg" class="text-gray-500 text-sm mb-6">This action cannot be undone.</p>
+    <div class="flex gap-3">
+      <button onclick="closeCancelModal()" class="flex-1 border border-gray-300 text-gray-600 py-2 rounded text-sm font-semibold hover:bg-gray-50">Keep Reservation</button>
+      <button onclick="confirmCancel()" id="confirm-cancel-btn" class="flex-1 bg-red-600 text-white py-2 rounded text-sm font-semibold hover:bg-red-700">Yes, Cancel</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let currentCode = null;
+  let currentRes = null;
+
+  // Pre-fill from URL param
+  const params = new URLSearchParams(window.location.search);
+  const codeParam = params.get('code');
+  if (codeParam) {
+    document.getElementById('conf-code-input').value = codeParam.toUpperCase();
+    window.addEventListener('load', lookupReservation);
+  }
+
+  async function lookupReservation() {
+    const code = document.getElementById('conf-code-input').value.trim();
+    const errEl = document.getElementById('lookup-error');
+    errEl.classList.add('hidden');
+    if (!code) { errEl.textContent = 'Please enter a confirmation code.'; errEl.classList.remove('hidden'); return; }
+
+    const btn = document.getElementById('lookup-btn');
+    btn.textContent = 'Looking up...'; btn.disabled = true;
+
+    try {
+      const res = await fetch(`/web/reservations/${encodeURIComponent(code)}`);
+      const data = await res.json();
+      btn.textContent = 'Look Up Reservation'; btn.disabled = false;
+
+      if (!res.ok) { errEl.textContent = data.detail || 'Reservation not found.'; errEl.classList.remove('hidden'); return; }
+
+      currentCode = code;
+      currentRes = data;
+      showDetails(data);
+    } catch(e) {
+      btn.textContent = 'Look Up Reservation'; btn.disabled = false;
+      errEl.textContent = 'Unable to look up reservation. Please try again.'; errEl.classList.remove('hidden');
+    }
+  }
+
+  function showDetails(d) {
+    document.getElementById('lookup-section').classList.add('hidden');
+    document.getElementById('res-details').classList.remove('hidden');
+
+    const statusBar = document.getElementById('res-status-bar');
+    const statusLabel = document.getElementById('res-status-label');
+    const statusColors = { confirmed:'bg-green-600', checked_in:'bg-blue-600', checked_out:'bg-gray-500', cancelled:'bg-red-600' };
+    statusBar.className = `${statusColors[d.status]||'bg-gray-600'} text-white px-6 py-3 flex items-center justify-between text-sm`;
+    const statusText = { confirmed:'✓ Confirmed', checked_in:'🔑 Checked In', checked_out:'✓ Checked Out', cancelled:'✗ Cancelled' };
+    statusLabel.textContent = statusText[d.status] || d.status;
+    document.getElementById('res-conf-code').textContent = d.confirmation_code;
+
+    const nights = d.num_nights;
+    document.getElementById('res-info').innerHTML = `
+      <div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Guest Name</span><span class="font-semibold">${d.customer_name}</span></div>
+      <div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Room Type</span><span class="font-semibold">${d.room_type}</span></div>
+      <div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Check-in</span><span>${formatDate(d.check_in_date)}</span></div>
+      <div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Check-out</span><span>${formatDate(d.check_out_date)}</span></div>
+      <div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Duration</span><span>${nights} night${nights>1?'s':''}</span></div>
+      <div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Guests</span><span>${d.num_guests}</span></div>
+      ${d.special_requests ? `<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-500">Special Requests</span><span class="text-right max-w-xs">${d.special_requests}</span></div>` : ''}
+      <div class="flex justify-between py-2"><span class="text-gray-500">Total Amount</span><span class="font-bold text-gold text-base">$${d.total_price.toFixed(2)}</span></div>`;
+
+    // Show/hide cancel button
+    const cancelSection = document.getElementById('cancel-section');
+    if (d.status === 'confirmed') { cancelSection.classList.remove('hidden'); }
+    else { cancelSection.classList.add('hidden'); }
+  }
+
+  function showCancelConfirm() {
+    const checkIn = new Date(currentRes.check_in_date + 'T12:00:00');
+    const hoursUntil = (checkIn - new Date()) / 3600000;
+    let msg = `Are you sure you want to cancel reservation <strong>${currentCode}</strong>?`;
+    if (hoursUntil < 24) msg += '<br/><span class="text-red-500 font-semibold">Note: Check-in is within 24 hours — a cancellation fee (one night) may apply.</span>';
+    document.getElementById('cancel-modal-msg').innerHTML = msg;
+    document.getElementById('cancel-modal').classList.remove('hidden');
+  }
+
+  function closeCancelModal() {
+    document.getElementById('cancel-modal').classList.add('hidden');
+  }
+
+  async function confirmCancel() {
+    const btn = document.getElementById('confirm-cancel-btn');
+    btn.textContent = 'Cancelling...'; btn.disabled = true;
+
+    try {
+      const res = await fetch(`/web/reservations/${encodeURIComponent(currentCode)}`, { method: 'DELETE' });
+      const data = await res.json();
+      btn.textContent = 'Yes, Cancel'; btn.disabled = false;
+      closeCancelModal();
+
+      if (res.ok) {
+        currentRes.status = 'cancelled';
+        showDetails(currentRes);
+      }
+    } catch(e) {
+      btn.textContent = 'Yes, Cancel'; btn.disabled = false;
+      closeCancelModal();
+    }
+  }
+
+  function resetLookup() {
+    currentCode = null; currentRes = null;
+    document.getElementById('res-details').classList.add('hidden');
+    document.getElementById('lookup-section').classList.remove('hidden');
+    document.getElementById('conf-code-input').value = '';
+  }
+
+  function formatDate(str) {
+    const d = new Date(str + 'T12:00:00');
+    return d.toLocaleDateString('en-US', {weekday:'short', month:'long', day:'numeric', year:'numeric'});
+  }
+</script>
+{% endblock %}

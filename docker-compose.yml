@@ -1,0 +1,115 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotel_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hotel_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel_pass}
+      POSTGRES_MULTIPLE_DATABASES: hotel_db,n8n_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./setup/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./setup/create_multiple_dbs.sh:/docker-entrypoint-initdb.d/00-create-dbs.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hotel_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking_api:
+    build:
+      context: ./booking_system
+      dockerfile: Dockerfile
+    container_name: hotel_booking_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hotel_user}:${POSTGRES_PASSWORD:-hotel_pass}@postgres:5432/hotel_db
+      API_KEY: ${BOOKING_API_KEY:-demo-secret-key-2024}
+      BOOKING_API_PUBLIC_URL: ${BOOKING_API_PUBLIC_URL:-http://localhost:8000}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-21m00Tcm4TlvDq8ikWAM}
+    volumes:
+      - audio_cache:/tmp/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: hotel_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-change-me-32-chars-minimum-here!!}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n_db
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-hotel_user}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-hotel_pass}
+      - GENERIC_TIMEZONE=America/New_York
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - N8N_RUNNERS_ENABLED=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      # Available as $env.VAR in Code nodes
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - BOOKING_API_KEY=${BOOKING_API_KEY:-demo-secret-key-2024}
+      - BOOKING_API_PUBLIC_URL=${BOOKING_API_PUBLIC_URL:-http://localhost:8000}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-21m00Tcm4TlvDq8ikWAM}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      booking_api:
+        condition: service_healthy
+
+  # Cloudflare tunnel for n8n (Twilio webhooks)
+  cloudflared_n8n:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared_n8n
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TRANSPORT_PROTOCOL=http2
+    command: tunnel --no-autoupdate --url http://n8n:5678
+    depends_on:
+      - n8n
+
+  # Cloudflare tunnel for booking API (ElevenLabs audio serving)
+  cloudflared_api:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared_api
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TRANSPORT_PROTOCOL=http2
+    command: tunnel --no-autoupdate --url http://booking_api:8000
+    depends_on:
+      booking_api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  n8n_data:
+  audio_cache:
+
+networks:
+  default:
+    name: hotel_voice_network

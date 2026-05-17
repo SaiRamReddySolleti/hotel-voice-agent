@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Rooms & Suites — Grand Choice Inn & Suites{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="bg-navy text-white py-16 text-center">
+  <p class="text-gold uppercase tracking-widest text-xs font-semibold mb-2">Accommodations</p>
+  <h1 class="font-serif text-5xl font-bold">Rooms &amp; Suites</h1>
+  <p class="text-gray-300 mt-3 text-base">3 floors · 42 rooms · 7 room categories</p>
+</div>
+
+<!-- Floor Map -->
+<section class="bg-cream py-8 border-b border-gray-200">
+  <div class="max-w-5xl mx-auto px-4">
+    <h3 class="font-serif text-lg text-navy font-semibold text-center mb-6">Room Layout by Floor</h3>
+    <div class="grid md:grid-cols-3 gap-4 text-sm text-center">
+      <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+        <div class="font-bold text-navy mb-2">Floor 1 · Rooms 101–114</div>
+        <div class="space-y-1 text-gray-600 text-xs">
+          <div>101–103 · Accessible Queen</div>
+          <div>104–109 · Economy Room</div>
+          <div>110–114 · Standard Queen</div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+        <div class="font-bold text-navy mb-2">Floor 2 · Rooms 201–214</div>
+        <div class="space-y-1 text-gray-600 text-xs">
+          <div>201–207 · Standard King</div>
+          <div>208–214 · Double Queen</div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+        <div class="font-bold text-navy mb-2">Floor 3 · Rooms 301–314</div>
+        <div class="space-y-1 text-gray-600 text-xs">
+          <div>301–310 · Deluxe King</div>
+          <div>311–314 · King Suite</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Room Cards -->
+<section class="py-16 bg-white">
+  <div class="max-w-6xl mx-auto px-4 space-y-12">
+
+    {% set room_data = [
+      ('ACCESSIBLE', 'Accessible Queen Room', 'Floor 1 · Rooms 101–103', 3,
+       'ADA-compliant room with roll-in shower, grab bars, and lowered fixtures. Thoughtfully designed for guests requiring full accessibility without sacrificing comfort.',
+       'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80',
+       99, 119, 2, 'Queen',
+       ['Roll-in Shower', 'Grab Bars', 'Lowered Fixtures', 'Visual Alarms', 'Free WiFi', '55" Smart TV', 'Coffee Maker', 'Mini-Fridge', 'Air Conditioning', 'Hair Dryer']),
+      ('ECONOMY', 'Economy Room', 'Floor 1 · Rooms 104–109', 6,
+       'Everything you need for a comfortable and restful stay at a great value. Ideal for solo travelers or budget-conscious guests who want quality without extras.',
+       'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
+       79, 89, 2, 'Queen',
+       ['Free WiFi', 'Flat-screen TV', 'Coffee Maker', 'Mini-Fridge', 'Air Conditioning', 'Hair Dryer']),
+      ('STD_QUEEN', 'Standard Queen', 'Floor 1 · Rooms 110–114', 5,
+       'Spacious and beautifully appointed with a plush queen bed and modern amenities. Perfect for couples and business travelers who appreciate extra comfort.',
+       'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&q=80',
+       99, 119, 2, 'Queen',
+       ['Free WiFi', '55" Smart TV', 'Coffee Maker', 'Mini-Fridge', 'Microwave', 'Work Desk', 'Iron & Ironing Board', 'Air Conditioning', 'Hair Dryer']),
+      ('STD_KING', 'Standard King', 'Floor 2 · Rooms 201–207', 7,
+       'Our classic king room with a premium king bed and all the comforts of home. Ideal for business travelers needing extra workspace or couples seeking more room.',
+       'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=80',
+       109, 129, 2, 'King',
+       ['Free WiFi', '55" Smart TV', 'Coffee Maker', 'Mini-Fridge', 'Microwave', 'Work Desk', 'Blackout Curtains', 'Iron & Ironing Board', 'Air Conditioning', 'Hair Dryer']),
+      ('DBL_QUEEN', 'Double Queen Room', 'Floor 2 · Rooms 208–214', 7,
+       'Two plush queen beds with ample space — perfect for families, friends, or anyone who likes to spread out. All the standard amenities with extra sleeping capacity.',
+       'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&q=80',
+       119, 139, 4, 'Two Queens',
+       ['Free WiFi', '55" Smart TV', 'Coffee Maker', 'Mini-Fridge', 'Microwave', 'Sofa Seating Area', 'Iron & Ironing Board', 'Air Conditioning', 'Hair Dryer']),
+      ('DELUXE_KING', 'Deluxe King Room', 'Floor 3 · Rooms 301–310', 10,
+       'Our most popular choice. Elevated king room with premium furnishings, stunning city views, Keurig coffee maker, and deluxe bath amenities including bathrobe and slippers.',
+       'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&q=80',
+       149, 179, 2, 'King',
+       ['Free WiFi', '65" Smart TV', 'Keurig Coffee Maker', 'Mini-Fridge', 'Microwave', 'Work Desk', 'City View', 'Bathrobe & Slippers', 'Premium Bath Amenities', 'Hair Dryer']),
+      ('SUITE_KING', 'King Suite', 'Floor 3 · Rooms 311–314', 4,
+       'The ultimate in-hotel luxury. A spacious suite with a separate living area, king bed, pull-out sofa, fully equipped wet bar, and dual TVs. Perfect for extended stays or special occasions.',
+       'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=800&q=80',
+       199, 239, 4, 'King + Sofa Bed',
+       ['Free WiFi', '65" Smart TV + 32" Bedroom TV', 'Wet Bar', 'Full Kitchen/Microwave', 'Mini-Fridge', 'Separate Living Area', 'Pull-out Sofa', 'Bathrobe & Slippers', 'Complimentary Bottled Water', 'City/Pool View']),
+    ] %}
+
+    {% for code, name, location, num_rooms, desc, img, price_wd, price_we, max_occ, bed, amenities in room_data %}
+    <div class="grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-lg border border-gray-100 {% if loop.index is odd %}{% else %}{% endif %}">
+      <div class="overflow-hidden h-72 md:h-auto {% if loop.index is even %}md:order-2{% endif %}">
+        <img src="{{ img }}" alt="{{ name }}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+      </div>
+      <div class="p-8 flex flex-col justify-between {% if loop.index is even %}md:order-1{% endif %}">
+        <div>
+          <div class="flex items-start justify-between mb-1">
+            <div>
+              <span class="text-gold text-xs font-semibold uppercase tracking-wider">{{ location }}</span>
+              <h2 class="font-serif text-2xl text-navy font-bold mt-1">{{ name }}</h2>
+            </div>
+            {% if code == 'DELUXE_KING' %}
+            <span class="bg-gold text-white text-xs px-2 py-1 rounded font-semibold ml-2 whitespace-nowrap">Most Popular</span>
+            {% elif code == 'SUITE_KING' %}
+            <span class="bg-navy text-white text-xs px-2 py-1 rounded font-semibold ml-2 whitespace-nowrap">Premium</span>
+            {% endif %}
+          </div>
+          <div class="flex gap-4 text-sm text-gray-500 mb-3">
+            <span>🛏 {{ bed }}</span>
+            <span>👥 Up to {{ max_occ }}</span>
+            <span>🏨 {{ num_rooms }} rooms</span>
+          </div>
+          <p class="text-gray-600 text-sm leading-relaxed mb-4">{{ desc }}</p>
+          <div class="flex flex-wrap gap-1.5 mb-5">
+            {% for a in amenities %}
+            <span class="bg-cream text-gray-600 text-xs px-2 py-1 rounded">{{ a }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-2xl font-bold text-navy">${{ price_wd }}</span>
+            <span class="text-gray-400 text-sm">/night weekday</span>
+            <div class="text-xs text-gray-400">${{ price_we }}/night weekend</div>
+          </div>
+          <a href="/book?room={{ code }}" class="btn-gold px-6 py-2.5 rounded font-semibold text-sm">Book This Room</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+</section>
+
+<!-- Policies -->
+<section class="py-12 bg-cream">
+  <div class="max-w-4xl mx-auto px-4 grid md:grid-cols-3 gap-6 text-sm text-center">
+    <div class="bg-white rounded-lg p-5 shadow-sm">
+      <div class="text-2xl mb-2">🕒</div>
+      <div class="font-semibold text-navy mb-1">Check-in / Check-out</div>
+      <div class="text-gray-500">Check-in 3:00 PM · Check-out 11:00 AM<br/>Early check-in from 1 PM available</div>
+    </div>
+    <div class="bg-white rounded-lg p-5 shadow-sm">
+      <div class="text-2xl mb-2">❌</div>
+      <div class="font-semibold text-navy mb-1">Cancellation Policy</div>
+      <div class="text-gray-500">Free cancellation up to 24 hours before check-in. Late cancellations charged one night.</div>
+    </div>
+    <div class="bg-white rounded-lg p-5 shadow-sm">
+      <div class="text-2xl mb-2">🐾</div>
+      <div class="font-semibold text-navy mb-1">Pet Policy</div>
+      <div class="text-gray-500">Pet-friendly rooms available. $25/night fee. Max 2 pets, 50 lbs each.</div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

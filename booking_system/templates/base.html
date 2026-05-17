@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Grand Choice Inn & Suites — Atlanta, GA{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A5C', light: '#254d7a', dark: '#122840' },
+            gold:  { DEFAULT: '#C9A84C', light: '#dfc27a', dark: '#a07d2e' },
+            cream: '#F8F4EE',
+          },
+          fontFamily: {
+            serif: ['Georgia', 'Cambria', 'serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .font-serif { font-family: Georgia, Cambria, serif; }
+    .hero-overlay { background: linear-gradient(to bottom, rgba(27,58,92,0.55) 0%, rgba(27,58,92,0.75) 100%); }
+    .gold-line::after { content:''; display:block; width:50px; height:3px; background:#C9A84C; margin-top:10px; }
+    .gold-line-center::after { content:''; display:block; width:50px; height:3px; background:#C9A84C; margin:10px auto 0; }
+    .room-card:hover .room-img { transform: scale(1.05); }
+    .room-img { transition: transform .4s ease; }
+    .btn-gold { background:#C9A84C; color:#fff; transition: background .2s; }
+    .btn-gold:hover { background:#a07d2e; }
+    .btn-navy { background:#1B3A5C; color:#fff; transition: background .2s; }
+    .btn-navy:hover { background:#122840; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #C9A84C; outline-offset: 1px; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-white text-gray-800">
+
+<!-- ===== NAVBAR ===== -->
+<nav class="bg-navy text-white sticky top-0 z-50 shadow-lg">
+  <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
+    <!-- Logo -->
+    <a href="/" class="flex items-center gap-3 group">
+      <div class="w-9 h-9 bg-gold rounded-full flex items-center justify-center text-navy font-bold text-lg font-serif">G</div>
+      <div class="leading-tight">
+        <div class="font-serif text-base font-semibold tracking-wide">Grand Choice Inn</div>
+        <div class="text-gold text-xs tracking-widest uppercase">&amp; Suites · Atlanta</div>
+      </div>
+    </a>
+    <!-- Nav links (desktop) -->
+    <div class="hidden md:flex items-center gap-6 text-sm font-medium">
+      <a href="/" class="hover:text-gold transition-colors">Home</a>
+      <a href="/rooms" class="hover:text-gold transition-colors">Rooms</a>
+      <a href="/#amenities" class="hover:text-gold transition-colors">Amenities</a>
+      <a href="/#location" class="hover:text-gold transition-colors">Location</a>
+      <a href="/my-reservation" class="hover:text-gold transition-colors">My Reservation</a>
+    </div>
+    <!-- CTA -->
+    <a href="/book" class="btn-gold px-5 py-2 rounded text-sm font-semibold">Book Now</a>
+  </div>
+</nav>
+
+<!-- ===== PAGE CONTENT ===== -->
+{% block content %}{% endblock %}
+
+<!-- ===== FOOTER ===== -->
+<footer class="bg-navy-dark bg-[#0e2035] text-gray-300 pt-14 pb-6">
+  <div class="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div>
+      <div class="font-serif text-white text-lg mb-2">Grand Choice Inn & Suites</div>
+      <div class="text-gold text-xs tracking-widest uppercase mb-4">Atlanta, Georgia</div>
+      <p class="text-sm leading-relaxed">Your home away from home in the heart of Atlanta. Premium comfort, exceptional service.</p>
+    </div>
+    <div>
+      <div class="text-white font-semibold mb-3 text-sm tracking-wide uppercase">Quick Links</div>
+      <ul class="space-y-2 text-sm">
+        <li><a href="/" class="hover:text-gold transition-colors">Home</a></li>
+        <li><a href="/rooms" class="hover:text-gold transition-colors">Rooms &amp; Suites</a></li>
+        <li><a href="/book" class="hover:text-gold transition-colors">Book a Room</a></li>
+        <li><a href="/my-reservation" class="hover:text-gold transition-colors">My Reservation</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="text-white font-semibold mb-3 text-sm tracking-wide uppercase">Hotel Info</div>
+      <ul class="space-y-2 text-sm">
+        <li>Check-in: 3:00 PM</li>
+        <li>Check-out: 11:00 AM</li>
+        <li>Front Desk: 24/7</li>
+        <li class="text-gold">+1-404-555-0190</li>
+      </ul>
+    </div>
+    <div>
+      <div class="text-white font-semibold mb-3 text-sm tracking-wide uppercase">Contact</div>
+      <address class="text-sm not-italic space-y-1">
+        <div>1500 Commerce Blvd</div>
+        <div>Atlanta, GA 30328</div>
+        <div class="mt-2"><a href="mailto:reservations@grandchoiceinn.com" class="hover:text-gold transition-colors text-xs">reservations@grandchoiceinn.com</a></div>
+      </address>
+    </div>
+  </div>
+  <div class="max-w-7xl mx-auto px-4 mt-10 pt-6 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+    <span>&copy; 2026 Grand Choice Inn &amp; Suites. All rights reserved.</span>
+    <span class="mt-2 md:mt-0">Member of Choice Hotels International</span>
+  </div>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

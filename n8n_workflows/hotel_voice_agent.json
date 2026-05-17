@@ -1,0 +1,447 @@
+{
+  "name": "Hotel Voice Agent \u2014 Grand Choice Inn",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Twilio Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Twilio POST body\nconst body = $input.first().json.body || $input.first().json;\n\nconst callSid      = body.CallSid      || '';\nconst speechResult = (body.SpeechResult || '').trim();\nconst callStatus   = body.CallStatus   || 'in-progress';\nconst fromPhone    = body.From         || '';\nconst toPhone      = body.To           || '';\n\n// Deepgram Nova-2 returns SpeechResult via Twilio's <Gather>\n// Confidence score is also available as SpeechResultConfidence\nconst confidence   = parseFloat(body.SpeechResultConfidence || '1.0');\n\nconst isNewCall = !speechResult && callStatus !== 'completed';\nconst isEnded   = callStatus === 'completed';\n\nreturn [{ json: { callSid, speechResult, callStatus, fromPhone, toPhone, confidence, isNewCall, isEnded } }];"
+      },
+      "id": "node-parse",
+      "name": "Parse Twilio Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-ended",
+                    "leftValue": "={{ $json.isEnded }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ended"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "rule-new",
+                    "leftValue": "={{ $json.isNewCall }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "new_call"
+            }
+          ]
+        },
+        "fallbackOutput": 2,
+        "options": {}
+      },
+      "id": "node-route",
+      "name": "Route: New / Ongoing / Ended",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// -------------------------------------------------------\n// GREETING \u2014 ElevenLabs TTS via booking API\n// -------------------------------------------------------\nconst { callSid, fromPhone } = $input.first().json;\n\nconst WEBHOOK_URL       = $env.N8N_WEBHOOK_URL;\nconst BOOKING_API_URL   = 'http://booking_api:8000';\nconst BOOKING_API_KEY   = $env.BOOKING_API_KEY;\nconst BOOKING_PUBLIC_URL = $env.BOOKING_API_PUBLIC_URL;\n\nconst greetingText = 'Welcome to Grand Choice Inn and Suites. I am your virtual assistant. I can help you check room availability, make a reservation, confirm an existing booking, or answer questions about our hotel. How can I help you today?';\n\n// Generate ElevenLabs audio for greeting\nlet audioUrl = null;\ntry {\n  const ttsResp = await fetch(`${BOOKING_API_URL}/tts`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'x-api-key': BOOKING_API_KEY },\n    body: JSON.stringify({ text: greetingText }),\n  });\n  if (ttsResp.ok) {\n    const ttsData = await ttsResp.json();\n    audioUrl = ttsData.audio_url;\n  }\n} catch (e) {\n  // fallback to Twilio TTS if ElevenLabs fails\n}\n\n// Build TwiML \u2014 use <Play> if we have ElevenLabs audio, else <Say>\nconst speechContent = audioUrl\n  ? `<Play>${audioUrl}</Play>`\n  : `<Say voice=\"Polly.Joanna\" language=\"en-US\">${greetingText}</Say>`;\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Gather input=\"speech\" action=\"${WEBHOOK_URL}/webhook/voice-agent\" method=\"POST\"\n          speechTimeout=\"3\" language=\"en-US\"\n          speechModel=\"nova2-general\"\n          enhanced=\"true\">\n    ${speechContent}\n  </Gather>\n  <Redirect method=\"POST\">${WEBHOOK_URL}/webhook/voice-agent</Redirect>\n</Response>`;\n\nreturn [{ json: { twiml, callSid, fromPhone } }];"
+      },
+      "id": "node-greeting",
+      "name": "Build Greeting TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// END CALL \u2014 simple Twilio TTS farewell\nconst { callSid } = $input.first().json;\n\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Joanna\">Thank you for calling Grand Choice Inn and Suites. We look forward to your stay. Goodbye!</Say>\n</Response>`;\n\nreturn [{ json: { twiml, callSid } }];"
+      },
+      "id": "node-end",
+      "name": "Build End TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://booking_api:8000/sessions/{{ $json.callSid }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.BOOKING_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-load-session",
+      "name": "Load Session History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// -------------------------------------------------------\n// VOICE AGENT \u2014 AI + Tools + ElevenLabs TTS\n// -------------------------------------------------------\nconst ANTHROPIC_API_KEY  = $env.ANTHROPIC_API_KEY;\nconst BOOKING_API_URL    = 'http://booking_api:8000';\nconst BOOKING_API_KEY    = $env.BOOKING_API_KEY;\nconst WEBHOOK_URL        = $env.N8N_WEBHOOK_URL;\n\nconst sessionData = $input.first().json;\nconst parsedData  = $('Parse Twilio Request').first().json;\n\nconst callSid     = parsedData.callSid;\nconst speechInput = parsedData.speechResult;\nconst callerPhone = parsedData.fromPhone;\nconst confidence  = parsedData.confidence || 1.0;\n\n// Low confidence \u2014 ask to repeat\nif (confidence < 0.4 && speechInput) {\n  const retryTwiml = await buildTwiML(\"I'm sorry, I didn't catch that clearly. Could you please repeat that?\", WEBHOOK_URL, BOOKING_API_URL, BOOKING_API_KEY);\n  return [{ json: { twiml: retryTwiml, callSid, updatedHistory: [], agentResponse: '' } }];\n}\n\nlet history = (sessionData.history && Array.isArray(sessionData.history))\n  ? sessionData.history : [];\n\nhistory.push({ role: 'user', content: speechInput });\n\n// ---- TOOLS ----\nconst tools = [\n  {\n    name: 'check_availability',\n    description: 'Check which room types are available for given check-in and check-out dates. Always call this before making a reservation.',\n    input_schema: {\n      type: 'object',\n      properties: {\n        check_in:  { type: 'string', description: 'Check-in date YYYY-MM-DD' },\n        check_out: { type: 'string', description: 'Check-out date YYYY-MM-DD' },\n        guests:    { type: 'integer', description: 'Number of guests', default: 1 },\n        room_type: { type: 'string', description: 'Optional room type code filter' }\n      },\n      required: ['check_in', 'check_out']\n    }\n  },\n  {\n    name: 'get_room_types',\n    description: 'Get all room types with prices and amenities. Use this to answer pricing questions.',\n    input_schema: { type: 'object', properties: {} }\n  },\n  {\n    name: 'make_reservation',\n    description: 'Create a new hotel reservation. Collect ALL required info before calling.',\n    input_schema: {\n      type: 'object',\n      properties: {\n        first_name:       { type: 'string' },\n        last_name:        { type: 'string' },\n        phone:            { type: 'string' },\n        email:            { type: 'string' },\n        room_type_code:   { type: 'string', description: 'ECONOMY, STD_QUEEN, STD_KING, DBL_QUEEN, DELUXE_KING, SUITE_KING, or ACCESSIBLE' },\n        check_in_date:    { type: 'string', description: 'YYYY-MM-DD' },\n        check_out_date:   { type: 'string', description: 'YYYY-MM-DD' },\n        num_guests:       { type: 'integer' },\n        special_requests: { type: 'string' }\n      },\n      required: ['first_name', 'last_name', 'phone', 'room_type_code', 'check_in_date', 'check_out_date', 'num_guests']\n    }\n  },\n  {\n    name: 'get_reservation',\n    description: 'Look up a reservation by confirmation code.',\n    input_schema: {\n      type: 'object',\n      properties: { confirmation_code: { type: 'string' } },\n      required: ['confirmation_code']\n    }\n  },\n  {\n    name: 'cancel_reservation',\n    description: 'Cancel a reservation. Always confirm with guest before calling.',\n    input_schema: {\n      type: 'object',\n      properties: { confirmation_code: { type: 'string' } },\n      required: ['confirmation_code']\n    }\n  },\n  {\n    name: 'get_hotel_info',\n    description: 'Get hotel information: address, check-in/out times, amenities, policies, parking, restaurant, etc.',\n    input_schema: {\n      type: 'object',\n      properties: {\n        topic: { type: 'string', description: 'Key: checkin_time, checkout_time, parking, wifi, pool, restaurant, pet_policy, cancellation, shuttle, breakfast, accessibility, smoking_policy. Leave empty for all.' }\n      }\n    }\n  }\n];\n\n// ---- BOOKING API HELPER ----\nasync function callAPI(method, path, body = null) {\n  const resp = await fetch(`${BOOKING_API_URL}${path}`, {\n    method,\n    headers: { 'Content-Type': 'application/json', 'x-api-key': BOOKING_API_KEY },\n    body: body ? JSON.stringify(body) : undefined,\n  });\n  const data = await resp.json();\n  if (!resp.ok) return { error: true, message: data.detail || `Error ${resp.status}` };\n  return data;\n}\n\n// ---- TOOL EXECUTOR ----\nasync function executeTool(name, input) {\n  if (name === 'check_availability') {\n    const p = new URLSearchParams({ check_in: input.check_in, check_out: input.check_out, guests: input.guests || 1 });\n    if (input.room_type) p.append('room_type', input.room_type);\n    return callAPI('GET', `/availability?${p}`);\n  }\n  if (name === 'get_room_types')     return callAPI('GET', '/rooms');\n  if (name === 'make_reservation')   return callAPI('POST', '/reservations', input);\n  if (name === 'get_reservation')    return callAPI('GET', `/reservations/${input.confirmation_code.toUpperCase()}`);\n  if (name === 'cancel_reservation') return callAPI('DELETE', `/reservations/${input.confirmation_code.toUpperCase()}`);\n  if (name === 'get_hotel_info') {\n    const qs = input.topic ? `?key=${encodeURIComponent(input.topic)}` : '';\n    return callAPI('GET', `/hotel-info${qs}`);\n  }\n  return { error: true, message: `Unknown tool: ${name}` };\n}\n\n// ---- ELEVENLABS TTS HELPER ----\nasync function buildTwiML(text, webhookUrl, apiUrl, apiKey) {\n  const safe = text\n    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\n  let speechContent;\n  try {\n    const ttsResp = await fetch(`${apiUrl}/tts`, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },\n      body: JSON.stringify({ text }),\n    });\n    if (ttsResp.ok) {\n      const ttsData = await ttsResp.json();\n      speechContent = `<Play>${ttsData.audio_url}</Play>`;\n    } else {\n      speechContent = `<Say voice=\"Polly.Joanna\" language=\"en-US\">${safe}</Say>`;\n    }\n  } catch (e) {\n    speechContent = `<Say voice=\"Polly.Joanna\" language=\"en-US\">${safe}</Say>`;\n  }\n\n  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Gather input=\"speech\" action=\"${webhookUrl}/webhook/voice-agent\" method=\"POST\"\n          speechTimeout=\"3\" language=\"en-US\"\n          speechModel=\"nova2-general\"\n          enhanced=\"true\">\n    ${speechContent}\n  </Gather>\n  <Redirect method=\"POST\">${webhookUrl}/webhook/voice-agent</Redirect>\n</Response>`;\n}\n\n// ---- SYSTEM PROMPT ----\nconst today = new Date().toISOString().split('T')[0];\nconst systemPrompt = `You are a friendly, professional voice assistant for Grand Choice Inn and Suites hotel. Today is ${today}. Caller phone: ${callerPhone}.\n\nHelp guests with: room availability, pricing, making reservations, confirming bookings, cancellations, hotel info and policies.\n\nRules:\n- Short, natural spoken sentences only. No bullet points, no markdown, no special characters.\n- Always confirm all reservation details (name, dates, room type, guests, total price) before booking.\n- For reservations collect: full name, check-in date, check-out date, room type, number of guests, phone number.\n- Speak dates naturally (April 15th) but use YYYY-MM-DD format for tool calls.\n- If you cannot help, redirect to front desk: +1-404-555-0190.\n- Never make up information. Always use tools for real data.\n\nRoom types: ECONOMY $79/night, STD_QUEEN $99, STD_KING $109, DBL_QUEEN $119 up to 4 guests, DELUXE_KING $149, SUITE_KING $199 up to 4 guests, ACCESSIBLE $99.`;\n\n// ---- AI AGENT LOOP ----\nasync function runAgent() {\n  for (let i = 0; i < 8; i++) {\n    const resp = await fetch('https://api.anthropic.com/v1/messages', {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'x-api-key': ANTHROPIC_API_KEY,\n        'anthropic-version': '2023-06-01',\n      },\n      body: JSON.stringify({\n        model: 'claude-sonnet-4-6',\n        max_tokens: 1024,\n        system: systemPrompt,\n        tools,\n        messages: history,\n      }),\n    });\n\n    if (!resp.ok) {\n      const err = await resp.text();\n      throw new Error(`API error ${resp.status}: ${err}`);\n    }\n\n    const data = await resp.json();\n    history.push({ role: 'assistant', content: data.content });\n\n    if (data.stop_reason === 'end_turn') {\n      const tb = data.content.find(b => b.type === 'text');\n      return tb ? tb.text : 'I am sorry, I could not process that. Please call our front desk at 404-555-0190.';\n    }\n\n    if (data.stop_reason === 'tool_use') {\n      const results = [];\n      for (const block of data.content) {\n        if (block.type === 'tool_use') {\n          let result;\n          try { result = await executeTool(block.name, block.input); }\n          catch (e) { result = { error: true, message: e.message }; }\n          results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });\n        }\n      }\n      history.push({ role: 'user', content: results });\n    }\n  }\n  return 'I am sorry, something went wrong. Please call our front desk at 404-555-0190.';\n}\n\nconst agentResponse = await runAgent();\nconst twiml = await buildTwiML(agentResponse, WEBHOOK_URL, BOOKING_API_URL, BOOKING_API_KEY);\n\nreturn [{ json: { twiml, callSid, updatedHistory: history, agentResponse } }];"
+      },
+      "id": "node-agent",
+      "name": "Voice Agent (AI + Tools)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://booking_api:8000/sessions/{{ $('Parse Twilio Request').first().json.callSid }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.BOOKING_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "call_sid": "={{ $('Parse Twilio Request').first().json.callSid }}",
+          "history": "={{ $json.updatedHistory }}",
+          "call_status": "active"
+        },
+        "options": {}
+      },
+      "id": "node-save-session",
+      "name": "Save Session History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://booking_api:8000/sessions/{{ $json.callSid }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.BOOKING_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "call_sid": "={{ $json.callSid }}",
+          "history": [],
+          "call_status": "ended"
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-end-session",
+      "name": "End Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.twiml }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-respond-greeting",
+      "name": "Respond: Greeting",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1140,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('Voice Agent (AI + Tools)').first().json.twiml }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-respond-agent",
+      "name": "Respond: Agent Reply",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1580,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('Build End TwiML').first().json.twiml }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-respond-end",
+      "name": "Respond: End Call",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1140,
+        540
+      ]
+    }
+  ],
+  "connections": {
+    "Twilio Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Twilio Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Twilio Request": {
+      "main": [
+        [
+          {
+            "node": "Route: New / Ongoing / Ended",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: New / Ongoing / Ended": {
+      "main": [
+        [
+          {
+            "node": "Build End TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Greeting TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load Session History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Greeting TwiML": {
+      "main": [
+        [
+          {
+            "node": "Respond: Greeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build End TwiML": {
+      "main": [
+        [
+          {
+            "node": "End Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "End Session": {
+      "main": [
+        [
+          {
+            "node": "Respond: End Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Session History": {
+      "main": [
+        [
+          {
+            "node": "Voice Agent (AI + Tools)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Agent (AI + Tools)": {
+      "main": [
+        [
+          {
+            "node": "Save Session History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Session History": {
+      "main": [
+        [
+          {
+            "node": "Respond: Agent Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "hotel",
+      "createdAt": "2024-01-01",
+      "updatedAt": "2024-01-01"
+    },
+    {
+      "name": "voice-agent",
+      "createdAt": "2024-01-01",
+      "updatedAt": "2024-01-01"
+    }
+  ]
+}

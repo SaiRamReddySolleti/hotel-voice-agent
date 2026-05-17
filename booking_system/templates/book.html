@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}Book a Room — Grand Choice Inn & Suites{% endblock %}
+
+{% block content %}
+
+<div class="bg-navy text-white py-12 text-center">
+  <h1 class="font-serif text-4xl font-bold">Book Your Stay</h1>
+  <p class="text-gray-300 mt-2 text-sm">Best rate guaranteed when booking direct</p>
+</div>
+
+<div class="max-w-5xl mx-auto px-4 py-12">
+
+  <!-- Step indicator -->
+  <div class="flex items-center justify-center mb-10 gap-0">
+    <div id="step1-ind" class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-gold text-white text-sm font-bold flex items-center justify-center">1</div>
+      <span class="text-sm font-semibold text-navy">Search</span>
+    </div>
+    <div class="w-16 h-px bg-gray-300 mx-2"></div>
+    <div id="step2-ind" class="flex items-center gap-2 opacity-40">
+      <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 text-sm font-bold flex items-center justify-center" id="step2-circle">2</div>
+      <span class="text-sm font-semibold text-gray-400" id="step2-label">Select Room</span>
+    </div>
+    <div class="w-16 h-px bg-gray-300 mx-2"></div>
+    <div id="step3-ind" class="flex items-center gap-2 opacity-40">
+      <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 text-sm font-bold flex items-center justify-center" id="step3-circle">3</div>
+      <span class="text-sm font-semibold text-gray-400" id="step3-label">Your Details</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: Search -->
+  <div id="step1" class="bg-white rounded-2xl shadow-lg p-8 mb-6">
+    <h2 class="font-serif text-2xl text-navy font-semibold mb-6">When are you staying?</h2>
+    <div class="grid md:grid-cols-3 gap-5">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Check-in Date</label>
+        <input type="date" id="check_in" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Check-out Date</label>
+        <input type="date" id="check_out" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Number of Guests</label>
+        <select id="guests" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm">
+          <option value="1">1 Guest</option>
+          <option value="2" selected>2 Guests</option>
+          <option value="3">3 Guests</option>
+          <option value="4">4 Guests</option>
+        </select>
+      </div>
+    </div>
+    <button onclick="searchAvailability()" class="btn-gold mt-6 px-8 py-3 rounded font-semibold text-sm">Check Availability</button>
+    <div id="search-error" class="mt-3 text-red-600 text-sm hidden"></div>
+  </div>
+
+  <!-- STEP 2: Available Rooms -->
+  <div id="step2" class="hidden">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-serif text-2xl text-navy font-semibold">Available Rooms</h2>
+      <button onclick="resetSearch()" class="text-sm text-gold hover:underline">← Change Dates</button>
+    </div>
+    <div id="stay-summary" class="bg-cream rounded-lg p-4 text-sm text-gray-600 mb-6"></div>
+    <div id="rooms-list" class="space-y-4"></div>
+    <div id="no-rooms" class="hidden text-center py-12 text-gray-500">
+      <div class="text-4xl mb-3">😔</div>
+      <div class="font-semibold text-lg">No rooms available for those dates.</div>
+      <div class="text-sm mt-1">Try adjusting your dates or guest count.</div>
+      <button onclick="resetSearch()" class="btn-navy mt-4 px-6 py-2 rounded text-sm font-semibold">Search Again</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Guest Details Form -->
+  <div id="step3" class="hidden bg-white rounded-2xl shadow-lg p-8">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="font-serif text-2xl text-navy font-semibold">Your Details</h2>
+      <button onclick="backToRooms()" class="text-sm text-gold hover:underline">← Back to rooms</button>
+    </div>
+
+    <!-- Selected room summary -->
+    <div id="selected-room-summary" class="bg-cream rounded-lg p-4 mb-6 text-sm"></div>
+
+    <div class="grid md:grid-cols-2 gap-5">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+        <input type="text" id="first_name" placeholder="John" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+        <input type="text" id="last_name" placeholder="Smith" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
+        <input type="tel" id="phone" placeholder="(404) 555-0000" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+        <input type="email" id="email" placeholder="john@example.com" class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Special Requests</label>
+        <textarea id="special_requests" rows="3" placeholder="Early check-in, high floor, accessibility needs..." class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm resize-none"></textarea>
+      </div>
+    </div>
+
+    <div class="mt-4 p-4 bg-blue-50 rounded-lg text-xs text-gray-600">
+      <strong>Cancellation Policy:</strong> Free cancellation up to 24 hours before check-in. Late cancellations are charged one night's stay.
+    </div>
+
+    <div id="booking-error" class="mt-3 text-red-600 text-sm hidden"></div>
+
+    <button onclick="submitBooking()" id="submit-btn" class="btn-gold mt-6 px-10 py-3 rounded font-semibold text-sm">
+      Confirm Reservation
+    </button>
+  </div>
+
+</div>
+
+<!-- SUCCESS MODAL -->
+<div id="success-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+    <div class="text-5xl mb-4">🎉</div>
+    <h2 class="font-serif text-2xl text-navy font-bold mb-2">Reservation Confirmed!</h2>
+    <p class="text-gray-500 text-sm mb-5">Thank you for choosing Grand Choice Inn &amp; Suites.</p>
+    <div id="conf-details" class="bg-cream rounded-lg p-4 text-sm text-left space-y-2 mb-6"></div>
+    <p class="text-xs text-gray-400 mb-4">Screenshot or note your confirmation code — you'll need it to manage your reservation.</p>
+    <div class="flex gap-3">
+      <a href="/" class="flex-1 border border-navy text-navy py-2 rounded text-sm font-semibold text-center hover:bg-navy hover:text-white transition-colors">Back to Home</a>
+      <a href="/my-reservation" id="view-res-link" class="flex-1 btn-gold py-2 rounded text-sm font-semibold text-center">View Reservation</a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedRoom = null;
+  let searchDates = {};
+
+  // Set default dates
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const dayAfter = new Date(today); dayAfter.setDate(today.getDate() + 2);
+  const fmt = d => d.toISOString().split('T')[0];
+
+  const ciInput = document.getElementById('check_in');
+  const coInput = document.getElementById('check_out');
+  ciInput.min = fmt(tomorrow);
+  coInput.min = fmt(dayAfter);
+
+  // Pre-fill from URL params
+  const params = new URLSearchParams(window.location.search);
+  ciInput.value = params.get('check_in') || fmt(tomorrow);
+  coInput.value = params.get('check_out') || fmt(dayAfter);
+  if (params.get('guests')) document.getElementById('guests').value = params.get('guests');
+  const preselect = params.get('room');
+
+  ciInput.addEventListener('change', () => {
+    const newMin = new Date(ciInput.value); newMin.setDate(newMin.getDate() + 1);
+    coInput.min = fmt(newMin);
+    if (coInput.value <= ciInput.value) coInput.value = fmt(newMin);
+  });
+
+  async function searchAvailability() {
+    const ci = ciInput.value, co = coInput.value, guests = document.getElementById('guests').value;
+    const errEl = document.getElementById('search-error');
+    errEl.classList.add('hidden');
+    if (!ci || !co) { errEl.textContent = 'Please select both check-in and check-out dates.'; errEl.classList.remove('hidden'); return; }
+    if (ci >= co) { errEl.textContent = 'Check-out must be after check-in.'; errEl.classList.remove('hidden'); return; }
+
+    try {
+      const btn = document.querySelector('#step1 button');
+      btn.textContent = 'Searching...'; btn.disabled = true;
+
+      const res = await fetch(`/web/availability?check_in=${ci}&check_out=${co}&guests=${guests}`);
+      const data = await res.json();
+
+      btn.textContent = 'Check Availability'; btn.disabled = false;
+
+      searchDates = { ci, co, guests: parseInt(guests) };
+      showStep2(data, ci, co, guests);
+    } catch(e) {
+      document.querySelector('#step1 button').textContent = 'Check Availability';
+      document.querySelector('#step1 button').disabled = false;
+      errEl.textContent = 'Unable to check availability. Please try again.'; errEl.classList.remove('hidden');
+    }
+  }
+
+  function showStep2(rooms, ci, co, guests) {
+    document.getElementById('step2-ind').classList.remove('opacity-40');
+    document.getElementById('step2-circle').className = 'w-8 h-8 rounded-full bg-gold text-white text-sm font-bold flex items-center justify-center';
+    document.getElementById('step2-label').className = 'text-sm font-semibold text-navy';
+
+    const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+    document.getElementById('stay-summary').innerHTML =
+      `<strong>${formatDate(ci)}</strong> → <strong>${formatDate(co)}</strong> &nbsp;·&nbsp; ${nights} night${nights>1?'s':''} &nbsp;·&nbsp; ${guests} guest${guests>1?'s':''}`;
+
+    const list = document.getElementById('rooms-list');
+    list.innerHTML = '';
+
+    if (!rooms.length) {
+      document.getElementById('no-rooms').classList.remove('hidden');
+    } else {
+      document.getElementById('no-rooms').classList.add('hidden');
+      rooms.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition-shadow';
+        card.innerHTML = `
+          <div class="flex-1">
+            <div class="font-serif text-lg font-semibold text-navy">${r.room_name}</div>
+            <div class="text-sm text-gray-500 mt-0.5">🛏 ${r.bed_type} &nbsp;·&nbsp; 👥 Up to ${r.max_occupancy} guests &nbsp;·&nbsp; 🏨 ${r.available_rooms} available</div>
+          </div>
+          <div class="text-right flex flex-col items-end gap-2">
+            <div><span class="text-xl font-bold text-navy">$${r.estimated_total.toFixed(0)}</span> <span class="text-sm text-gray-400">total</span></div>
+            <div class="text-xs text-gray-400">$${r.price_per_night_weekday}/night weekday · $${r.price_per_night_weekend}/night weekend</div>
+            <button onclick='selectRoom(${JSON.stringify(r)})' class="btn-gold px-5 py-2 rounded text-sm font-semibold">Select</button>
+          </div>`;
+        list.appendChild(card);
+      });
+
+      // Auto-select if preselect param matches
+      if (preselect) {
+        const match = rooms.find(r => r.type_code === preselect);
+        if (match) selectRoom(match);
+      }
+    }
+
+    document.getElementById('step1').classList.add('hidden');
+    document.getElementById('step2').classList.remove('hidden');
+  }
+
+  function selectRoom(room) {
+    selectedRoom = room;
+    const nights = Math.round((new Date(searchDates.co) - new Date(searchDates.ci)) / 86400000);
+
+    document.getElementById('step3-ind').classList.remove('opacity-40');
+    document.getElementById('step3-circle').className = 'w-8 h-8 rounded-full bg-gold text-white text-sm font-bold flex items-center justify-center';
+    document.getElementById('step3-label').className = 'text-sm font-semibold text-navy';
+
+    document.getElementById('selected-room-summary').innerHTML = `
+      <div class="font-semibold text-navy">${room.room_name}</div>
+      <div class="text-gray-600 mt-1">${formatDate(searchDates.ci)} → ${formatDate(searchDates.co)} &nbsp;·&nbsp; ${nights} night${nights>1?'s':''} &nbsp;·&nbsp; ${searchDates.guests} guest${searchDates.guests>1?'s':''}</div>
+      <div class="text-gold font-bold mt-1">$${room.estimated_total.toFixed(0)} total</div>`;
+
+    document.getElementById('step2').classList.add('hidden');
+    document.getElementById('step3').classList.remove('hidden');
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  function backToRooms() {
+    document.getElementById('step3').classList.add('hidden');
+    document.getElementById('step2').classList.remove('hidden');
+  }
+
+  function resetSearch() {
+    document.getElementById('step2').classList.add('hidden');
+    document.getElementById('step3').classList.add('hidden');
+    document.getElementById('step1').classList.remove('hidden');
+    ['step2-ind','step3-ind'].forEach(id => document.getElementById(id).classList.add('opacity-40'));
+  }
+
+  async function submitBooking() {
+    const errEl = document.getElementById('booking-error');
+    errEl.classList.add('hidden');
+    const btn = document.getElementById('submit-btn');
+
+    const first = document.getElementById('first_name').value.trim();
+    const last  = document.getElementById('last_name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const sr    = document.getElementById('special_requests').value.trim();
+
+    if (!first || !last || !phone) { errEl.textContent = 'First name, last name, and phone are required.'; errEl.classList.remove('hidden'); return; }
+
+    btn.textContent = 'Processing...'; btn.disabled = true;
+
+    try {
+      const res = await fetch('/web/reservations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          first_name: first, last_name: last, phone, email: email || null,
+          room_type_code: selectedRoom.type_code,
+          check_in_date: searchDates.ci,
+          check_out_date: searchDates.co,
+          num_guests: searchDates.guests,
+          special_requests: sr || null,
+        })
+      });
+      const data = await res.json();
+      btn.textContent = 'Confirm Reservation'; btn.disabled = false;
+
+      if (!res.ok) { errEl.textContent = data.detail || 'Booking failed. Please try again.'; errEl.classList.remove('hidden'); return; }
+
+      // Show success modal
+      const nights = Math.round((new Date(searchDates.co) - new Date(searchDates.ci)) / 86400000);
+      document.getElementById('conf-details').innerHTML = `
+        <div class="flex justify-between py-1 border-b border-gray-200"><span class="text-gray-500">Confirmation</span><span class="font-bold text-navy text-base">${data.confirmation_code}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-200"><span class="text-gray-500">Guest</span><span>${data.customer_name}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-200"><span class="text-gray-500">Room</span><span>${data.room_type}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-200"><span class="text-gray-500">Check-in</span><span>${formatDate(data.check_in_date)}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-200"><span class="text-gray-500">Check-out</span><span>${formatDate(data.check_out_date)}</span></div>
+        <div class="flex justify-between py-1"><span class="text-gray-500">Total</span><span class="font-bold text-gold">$${data.total_price.toFixed(2)}</span></div>`;
+      document.getElementById('view-res-link').href = `/my-reservation?code=${data.confirmation_code}`;
+      document.getElementById('success-modal').classList.remove('hidden');
+    } catch(e) {
+      btn.textContent = 'Confirm Reservation'; btn.disabled = false;
+      errEl.textContent = 'Unable to complete booking. Please try again.'; errEl.classList.remove('hidden');
+    }
+  }
+
+  function formatDate(str) {
+    const d = new Date(str + 'T12:00:00');
+    return d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric', year:'numeric'});
+  }
+</script>
+{% endblock %}

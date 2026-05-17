@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Grand Choice Inn & Suites — Atlanta's Premier Hotel{% endblock %}
+
+{% block content %}
+
+<!-- ===== HERO ===== -->
+<section class="relative h-[90vh] min-h-[560px] flex items-center justify-center overflow-hidden">
+  <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1600&q=80" alt="Grand Choice Inn & Suites"
+       class="absolute inset-0 w-full h-full object-cover" />
+  <div class="hero-overlay absolute inset-0"></div>
+  <div class="relative z-10 text-center text-white px-4 max-w-3xl mx-auto">
+    <p class="text-gold uppercase tracking-[0.25em] text-sm font-medium mb-4">Welcome to Atlanta</p>
+    <h1 class="font-serif text-5xl md:text-6xl font-bold leading-tight mb-6">
+      Grand Choice Inn<br />&amp; Suites
+    </h1>
+    <p class="text-lg md:text-xl text-gray-200 mb-10 leading-relaxed">
+      Where comfort meets elegance. Experience premier hospitality in the heart of Atlanta.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a href="/book" class="btn-gold px-8 py-3 rounded text-base font-semibold">Reserve Your Room</a>
+      <a href="/rooms" class="border border-white text-white px-8 py-3 rounded text-base font-semibold hover:bg-white hover:text-navy transition-colors">Explore Rooms</a>
+    </div>
+  </div>
+  <!-- Scroll hint -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce text-white opacity-60">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+  </div>
+</section>
+
+<!-- ===== QUICK BOOKING STRIP ===== -->
+<section class="bg-navy py-6 shadow-lg">
+  <div class="max-w-5xl mx-auto px-4">
+    <form action="/book" method="get" class="flex flex-col md:flex-row gap-3 items-end">
+      <div class="flex-1">
+        <label class="block text-gold text-xs font-semibold uppercase tracking-wider mb-1">Check-in</label>
+        <input type="date" name="check_in" id="hero_checkin" class="w-full px-3 py-2.5 rounded bg-navy-light bg-[#254d7a] text-white border border-gray-500 focus:border-gold text-sm" />
+      </div>
+      <div class="flex-1">
+        <label class="block text-gold text-xs font-semibold uppercase tracking-wider mb-1">Check-out</label>
+        <input type="date" name="check_out" id="hero_checkout" class="w-full px-3 py-2.5 rounded bg-[#254d7a] text-white border border-gray-500 focus:border-gold text-sm" />
+      </div>
+      <div class="w-32">
+        <label class="block text-gold text-xs font-semibold uppercase tracking-wider mb-1">Guests</label>
+        <select name="guests" class="w-full px-3 py-2.5 rounded bg-[#254d7a] text-white border border-gray-500 text-sm">
+          <option value="1">1 Guest</option>
+          <option value="2" selected>2 Guests</option>
+          <option value="3">3 Guests</option>
+          <option value="4">4 Guests</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-gold px-8 py-2.5 rounded font-semibold text-sm whitespace-nowrap">Check Availability</button>
+    </form>
+  </div>
+</section>
+
+<!-- ===== HIGHLIGHTS BAR ===== -->
+<section class="bg-cream py-8 border-b border-gray-200">
+  <div class="max-w-6xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+    <div class="flex flex-col items-center gap-2">
+      <div class="text-3xl">🌐</div>
+      <div class="font-semibold text-navy text-sm">Free High-Speed WiFi</div>
+      <div class="text-xs text-gray-500">Throughout the property</div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <div class="text-3xl">🏊</div>
+      <div class="font-semibold text-navy text-sm">Heated Indoor Pool</div>
+      <div class="text-xs text-gray-500">Open 6 AM – 10 PM</div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <div class="text-3xl">🍳</div>
+      <div class="font-semibold text-navy text-sm">Hot Breakfast Buffet</div>
+      <div class="text-xs text-gray-500">Daily 6 AM – 10 AM</div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <div class="text-3xl">🚌</div>
+      <div class="font-semibold text-navy text-sm">Airport Shuttle</div>
+      <div class="text-xs text-gray-500">Every 30 min, 5 AM–11 PM</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ABOUT ===== -->
+<section class="py-20 bg-white">
+  <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-14 items-center">
+    <div>
+      <p class="text-gold uppercase tracking-widest text-xs font-semibold mb-3">About Us</p>
+      <h2 class="font-serif text-4xl text-navy font-bold mb-5 gold-line">Atlanta's Premier Hotel</h2>
+      <p class="text-gray-600 leading-relaxed mb-4">
+        Nestled in the heart of Atlanta, Grand Choice Inn &amp; Suites offers an unparalleled blend of comfort, style, and genuine Southern hospitality. Whether you're here for business or leisure, our dedicated team ensures every stay is exceptional.
+      </p>
+      <p class="text-gray-600 leading-relaxed mb-6">
+        With 42 thoughtfully appointed rooms across 3 floors, modern amenities, and a central location, we're the ideal base for exploring everything Atlanta has to offer.
+      </p>
+      <div class="grid grid-cols-3 gap-4 text-center">
+        <div class="bg-cream rounded-lg p-4">
+          <div class="font-serif text-3xl text-navy font-bold">42</div>
+          <div class="text-xs text-gray-500 mt-1">Rooms &amp; Suites</div>
+        </div>
+        <div class="bg-cream rounded-lg p-4">
+          <div class="font-serif text-3xl text-navy font-bold">3</div>
+          <div class="text-xs text-gray-500 mt-1">Floors</div>
+        </div>
+        <div class="bg-cream rounded-lg p-4">
+          <div class="font-serif text-3xl text-navy font-bold">★★★</div>
+          <div class="text-xs text-gray-500 mt-1">Star Rating</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative">
+      <img src="https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80" alt="Hotel lobby"
+           class="rounded-lg shadow-xl w-full object-cover h-80" />
+      <div class="absolute -bottom-5 -left-5 bg-gold text-white p-4 rounded-lg shadow-lg hidden md:block">
+        <div class="font-serif text-2xl font-bold">24/7</div>
+        <div class="text-xs">Front Desk Service</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURED ROOMS ===== -->
+<section class="py-20 bg-cream">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <p class="text-gold uppercase tracking-widest text-xs font-semibold mb-2">Accommodations</p>
+      <h2 class="font-serif text-4xl text-navy font-bold gold-line-center">Rooms &amp; Suites</h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-8">
+      <!-- Economy -->
+      <div class="room-card bg-white rounded-xl shadow-md overflow-hidden group">
+        <div class="overflow-hidden h-52">
+          <img src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&q=80" alt="Economy Room"
+               class="room-img w-full h-full object-cover" />
+        </div>
+        <div class="p-6">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-serif text-xl text-navy font-semibold">Economy Room</h3>
+            <span class="text-gold font-bold text-sm">from $79</span>
+          </div>
+          <p class="text-gray-500 text-sm mb-4">Comfortable essentials for budget-conscious travelers.</p>
+          <div class="flex flex-wrap gap-1 mb-5">
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">Queen Bed</span>
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">Free WiFi</span>
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">TV</span>
+          </div>
+          <a href="/book?room=ECONOMY" class="btn-navy w-full text-center py-2 rounded text-sm font-semibold block">Book Now</a>
+        </div>
+      </div>
+      <!-- Deluxe King -->
+      <div class="room-card bg-white rounded-xl shadow-md overflow-hidden group relative">
+        <div class="absolute top-3 right-3 z-10 bg-gold text-white text-xs px-2 py-1 rounded font-semibold">Most Popular</div>
+        <div class="overflow-hidden h-52">
+          <img src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=600&q=80" alt="Deluxe King"
+               class="room-img w-full h-full object-cover" />
+        </div>
+        <div class="p-6">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-serif text-xl text-navy font-semibold">Deluxe King</h3>
+            <span class="text-gold font-bold text-sm">from $149</span>
+          </div>
+          <p class="text-gray-500 text-sm mb-4">Premium furnishings with stunning city views on the 3rd floor.</p>
+          <div class="flex flex-wrap gap-1 mb-5">
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">King Bed</span>
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">City View</span>
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">Bathrobe</span>
+          </div>
+          <a href="/book?room=DELUXE_KING" class="btn-gold w-full text-center py-2 rounded text-sm font-semibold block">Book Now</a>
+        </div>
+      </div>
+      <!-- King Suite -->
+      <div class="room-card bg-white rounded-xl shadow-md overflow-hidden group">
+        <div class="overflow-hidden h-52">
+          <img src="https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=600&q=80" alt="King Suite"
+               class="room-img w-full h-full object-cover" />
+        </div>
+        <div class="p-6">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-serif text-xl text-navy font-semibold">King Suite</h3>
+            <span class="text-gold font-bold text-sm">from $199</span>
+          </div>
+          <p class="text-gray-500 text-sm mb-4">Separate living area, wet bar, and premium suite amenities.</p>
+          <div class="flex flex-wrap gap-1 mb-5">
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">King + Sofa</span>
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">Wet Bar</span>
+            <span class="bg-cream text-xs px-2 py-1 rounded text-gray-600">2 TVs</span>
+          </div>
+          <a href="/book?room=SUITE_KING" class="btn-navy w-full text-center py-2 rounded text-sm font-semibold block">Book Now</a>
+        </div>
+      </div>
+    </div>
+    <div class="text-center mt-10">
+      <a href="/rooms" class="border-2 border-navy text-navy px-8 py-3 rounded font-semibold hover:bg-navy hover:text-white transition-colors text-sm">View All Rooms &amp; Rates</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== AMENITIES ===== -->
+<section id="amenities" class="py-20 bg-white">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <p class="text-gold uppercase tracking-widest text-xs font-semibold mb-2">What We Offer</p>
+      <h2 class="font-serif text-4xl text-navy font-bold gold-line-center">Hotel Amenities</h2>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      {% set amenities = [
+        ('🏊‍♂️', 'Heated Indoor Pool', 'Open 6 AM – 10 PM daily'),
+        ('💪', 'Fitness Center', '24-hour access'),
+        ('🍽️', 'The Harvest Grille', 'Open 6 AM – 10 PM'),
+        ('🍸', 'The Lobby Bar', 'Open 4 PM – midnight'),
+        ('🚗', 'Free Parking', 'Self & covered options'),
+        ('🌐', 'High-Speed WiFi', 'Complimentary throughout'),
+        ('🚌', 'Airport Shuttle', 'Every 30 min, 5 AM–11 PM'),
+        ('🐾', 'Pet Friendly', '$25/night, max 2 pets'),
+        ('♿', 'ADA Accessible', 'Rooms & facilities'),
+        ('☕', 'Hot Breakfast', 'Buffet 6–10 AM'),
+        ('🔑', 'Early Check-in', 'From 1 PM, subject to availability'),
+        ('🛎️', '24/7 Front Desk', 'Always here to help'),
+      ] %}
+      {% for icon, title, desc in amenities %}
+      <div class="bg-cream rounded-lg p-5 flex flex-col items-center text-center hover:shadow-md transition-shadow">
+        <div class="text-3xl mb-3">{{ icon }}</div>
+        <div class="font-semibold text-navy text-sm mb-1">{{ title }}</div>
+        <div class="text-xs text-gray-500">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ===== GUEST REVIEWS ===== -->
+<section class="py-20 bg-navy text-white">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <p class="text-gold uppercase tracking-widest text-xs font-semibold mb-2">Guest Reviews</p>
+      <h2 class="font-serif text-4xl font-bold gold-line-center">What Our Guests Say</h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-8">
+      {% for name, stars, text, location in [
+        ('Sarah M.', 5, 'Absolutely loved our stay! The rooms are beautifully appointed and the staff was incredibly helpful. The airport shuttle was a lifesaver.', 'New York, NY'),
+        ('James T.', 5, 'Perfect business trip hotel. Fast WiFi, comfortable king bed, and the breakfast buffet is top notch. Will definitely stay again.', 'Chicago, IL'),
+        ('Maria R.', 5, 'The Deluxe King room had a gorgeous city view. Clean, quiet, and the complimentary bottled water was a nice touch. Highly recommend!', 'Miami, FL'),
+      ] %}
+      <div class="bg-white/10 rounded-xl p-6 backdrop-blur-sm">
+        <div class="text-gold text-lg mb-3">{{ '★' * stars }}</div>
+        <p class="text-gray-200 text-sm leading-relaxed mb-4 italic">"{{ text }}"</p>
+        <div class="font-semibold text-white text-sm">{{ name }}</div>
+        <div class="text-gray-400 text-xs">{{ location }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ===== LOCATION ===== -->
+<section id="location" class="py-20 bg-cream">
+  <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+    <div>
+      <p class="text-gold uppercase tracking-widest text-xs font-semibold mb-3">Find Us</p>
+      <h2 class="font-serif text-4xl text-navy font-bold mb-5 gold-line">Our Location</h2>
+      <p class="text-gray-600 mb-6">Centrally located in Atlanta with easy access to major attractions, business districts, and Hartsfield-Jackson Atlanta International Airport.</p>
+      <div class="space-y-3 text-sm">
+        <div class="flex items-start gap-3"><span class="text-gold text-base">📍</span><div><div class="font-semibold text-navy">Address</div><div class="text-gray-600">1500 Commerce Blvd, Atlanta, GA 30328</div></div></div>
+        <div class="flex items-start gap-3"><span class="text-gold text-base">📞</span><div><div class="font-semibold text-navy">Phone</div><div class="text-gray-600">+1-404-555-0190</div></div></div>
+        <div class="flex items-start gap-3"><span class="text-gold text-base">✉️</span><div><div class="font-semibold text-navy">Email</div><div class="text-gray-600">reservations@grandchoiceinn.com</div></div></div>
+        <div class="flex items-start gap-3"><span class="text-gold text-base">✈️</span><div><div class="font-semibold text-navy">Airport</div><div class="text-gray-600">15 min from Hartsfield-Jackson (ATL)</div></div></div>
+      </div>
+    </div>
+    <div class="bg-gray-200 rounded-xl h-72 flex items-center justify-center overflow-hidden shadow-lg">
+      <iframe
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3315.4!2d-84.387!3d33.749!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzPCsDQ0JzU2LjciTiA4NMKwMjMnMTMuMiJX!5e0!3m2!1sen!2sus!4v1!5m2!1sen!2sus"
+        width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" class="rounded-xl"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="py-16 bg-gold text-white text-center">
+  <h2 class="font-serif text-4xl font-bold mb-3">Ready for Your Stay?</h2>
+  <p class="text-white/90 mb-8 text-lg">Book directly and get the best available rate — guaranteed.</p>
+  <a href="/book" class="bg-white text-gold px-10 py-3 rounded font-bold text-base hover:bg-cream transition-colors">Reserve Now</a>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Set default dates on quick booking form
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const dayAfter = new Date(today); dayAfter.setDate(today.getDate() + 2);
+  const fmt = d => d.toISOString().split('T')[0];
+  document.getElementById('hero_checkin').value = fmt(tomorrow);
+  document.getElementById('hero_checkout').value = fmt(dayAfter);
+  document.getElementById('hero_checkin').min = fmt(tomorrow);
+</script>
+{% endblock %}
