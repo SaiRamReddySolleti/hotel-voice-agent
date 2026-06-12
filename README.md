@@ -60,10 +60,10 @@ Built with a hotel website included so guests can also book online.
 
 ---
 
-## Quick Start
+## Quick Start (Local)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/hotel-voice-agent.git
+git clone https://github.com/SaiRamReddySolleti/hotel-voice-agent.git
 cd hotel-voice-agent
 cp .env.example .env
 # Fill in your API keys in .env
@@ -71,6 +71,107 @@ docker compose up -d
 ```
 
 See [SETUP.md](SETUP.md) for full setup instructions including Twilio and n8n configuration.
+
+---
+
+## Deploy to AWS EC2 (Free Tier)
+
+Run the full stack live on AWS EC2 — free for 12 months.
+
+### Prerequisites
+
+- AWS account ([sign up here](https://aws.amazon.com))
+- EC2 instance: **t2.micro** (free tier, 1GB RAM) or **t3.small** (2GB RAM, ~$15/mo recommended)
+- Key pair (`.pem` file) for SSH access
+
+### 1. Launch EC2 Instance
+
+In the AWS Console → EC2 → Launch Instance:
+
+| Setting | Value |
+|---|---|
+| AMI | Amazon Linux 2023 or Ubuntu 22.04 LTS |
+| Instance type | t2.micro (free) or t3.small (recommended) |
+| Key pair | Create new or select existing |
+| Storage | 30 GB gp3 |
+
+**Security Group — open these ports:**
+
+| Port | Protocol | Source | Purpose |
+|---|---|---|---|
+| 22 | TCP | Your IP | SSH |
+| 80 | TCP | Anywhere | HTTP |
+| 443 | TCP | Anywhere | HTTPS |
+| 8000 | TCP | Anywhere | FastAPI / Hotel Website |
+| 5678 | TCP | Anywhere | n8n Dashboard |
+
+**Allocate an Elastic IP** and associate it with your instance (keeps IP static across restarts).
+
+### 2. SSH into Your Instance
+
+```bash
+chmod 400 your-key.pem
+ssh -i your-key.pem ec2-user@<YOUR-ELASTIC-IP>
+# For Ubuntu: ssh -i your-key.pem ubuntu@<YOUR-ELASTIC-IP>
+```
+
+### 3. Run the Setup Script
+
+```bash
+# Clone and set up everything automatically
+git clone https://github.com/SaiRamReddySolleti/hotel-voice-agent.git
+cd hotel-voice-agent
+bash ec2_setup.sh
+```
+
+This installs Docker, Docker Compose, adds 1GB swap, and configures auto-start on reboot.
+
+### 4. Configure Environment Variables
+
+```bash
+nano .env
+```
+
+Fill in your API keys:
+- `ANTHROPIC_API_KEY` — your AI API key
+- `ELEVENLABS_API_KEY` — your ElevenLabs key
+- `POSTGRES_PASSWORD` — change from default
+- `BOOKING_API_KEY` — change from default
+
+### 5. Start Services
+
+```bash
+docker compose up -d
+```
+
+Wait ~30 seconds for all services to start, then get your Cloudflare tunnel URLs:
+
+```bash
+bash get_tunnel_urls.sh
+```
+
+Update `.env` with the tunnel URLs (`BOOKING_API_PUBLIC_URL` and `N8N_WEBHOOK_URL`), then restart:
+
+```bash
+docker compose down && docker compose up -d
+```
+
+### 6. Access Your Live Services
+
+| Service | URL |
+|---|---|
+| Hotel Website | `http://<YOUR-EC2-IP>:8000` |
+| API Docs | `http://<YOUR-EC2-IP>:8000/docs` |
+| n8n Dashboard | `http://<YOUR-EC2-IP>:5678` |
+| Public API (via tunnel) | `https://<tunnel-url>/docs` |
+
+### Updating from GitHub
+
+After pushing new code to GitHub, redeploy with one command:
+
+```bash
+bash deploy.sh
+```
 
 ---
 
@@ -117,6 +218,9 @@ Full interactive docs at `http://localhost:8000/docs`
 hotel-voice-agent/
 ├── docker-compose.yml
 ├── .env.example
+├── ec2_setup.sh               # AWS EC2 server provisioning script
+├── deploy.sh                  # Pull & redeploy from GitHub
+├── get_tunnel_urls.sh         # Fetch Cloudflare tunnel URLs
 ├── setup/
 │   ├── init.sql                # Schema + seed data
 │   └── create_multiple_dbs.sh
@@ -143,3 +247,4 @@ hotel-voice-agent/
 - Twilio account (phone number with Voice capability)
 - ElevenLabs account (for TTS)
 - AI API key (for voice agent)
+- **For cloud deployment:** AWS account (EC2 free tier eligible)
