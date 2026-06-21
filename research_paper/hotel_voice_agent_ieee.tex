@@ -1,0 +1,808 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tikz}
+\usetikzlibrary{
+  shapes.geometric,
+  shapes.rounded,
+  arrows.meta,
+  positioning,
+  fit,
+  backgrounds,
+  calc,
+  decorations.pathreplacing
+}
+
+\hypersetup{colorlinks=false}
+
+% ── TikZ styles ───────────────────────────────────────────────────────────────
+\tikzset{
+  block/.style = {
+    rectangle, rounded corners=3pt,
+    draw=black!70, fill=#1!15,
+    text width=2.0cm, align=center,
+    minimum height=0.65cm, font=\scriptsize\sffamily
+  },
+  block/.default = blue,
+  wideblock/.style = {
+    rectangle, rounded corners=3pt,
+    draw=black!70, fill=#1!15,
+    text width=3.0cm, align=center,
+    minimum height=0.65cm, font=\scriptsize\sffamily
+  },
+  wideblock/.default = blue,
+  arrow/.style = {-{Stealth[length=4pt]}, thick, draw=black!60},
+  dbarrow/.style = {Stealth[length=4pt]-{Stealth[length=4pt]}, thick, draw=black!60},
+  dashedbox/.style = {
+    rectangle, rounded corners=4pt,
+    draw=gray!60, dashed, fill=gray!5,
+    inner sep=4pt
+  },
+  nnode/.style = {
+    rectangle, rounded corners=2pt,
+    draw=#1!80, fill=#1!12,
+    text width=1.8cm, align=center,
+    minimum height=0.58cm, font=\tiny\sffamily
+  },
+  nnode/.default = teal,
+  narrowrow/.style = {-{Stealth[length=3pt]}, draw=black!55, thick},
+}
+
+% ── Document ──────────────────────────────────────────────────────────────────
+\begin{document}
+
+\title{LLM-Orchestrated Voice Agent for Hotel Reservations:\\
+Design, Implementation, and Deployment}
+
+\author{
+  \IEEEauthorblockN{Sai Ram Reddy Solleti}
+  \IEEEauthorblockA{
+    Master of Science in Generative AI, Semester 3 \\
+    Email: solleti.sairam2002@gmail.com
+  }
+}
+
+\maketitle
+
+% ── Abstract ──────────────────────────────────────────────────────────────────
+\begin{abstract}
+Phone-based hotel reservations remain a critical service channel for independent
+and mid-scale properties, yet staffing a reservation desk around the clock is
+rarely economical. This paper presents the design and implementation of a
+full-stack conversational voice agent for Grand Choice Inn \& Suites, a
+42-room property in Atlanta, Georgia. The system lets guests make, confirm, and
+cancel room reservations through a natural phone conversation without any
+human involvement. The pipeline integrates Twilio for telephony with Deepgram
+Nova-2 for speech recognition, n8n as the orchestration engine, Anthropic Claude
+as the language model, and ElevenLabs for neural text-to-speech synthesis. A
+FastAPI backend backed by PostgreSQL handles all booking operations, while
+per-call conversation history stored as JSONB gives the agent full dialogue
+context across multi-turn calls. A companion hotel website, built with Jinja2
+and Tailwind CSS, provides the same booking capability through a browser
+interface. The entire system runs under Docker Compose and reaches the public
+internet through Cloudflare tunnels, making deployment possible on a single
+commodity machine or a \$6/month cloud server. End-to-end turn latency ranges
+from 3 to 7 seconds, and the agent handles booking, cancellation, and
+hotel-information queries across diverse, unscripted conversations.
+\end{abstract}
+
+\begin{IEEEkeywords}
+voice agent, large language model, hotel reservation, conversational AI,
+n8n, FastAPI, Twilio, ElevenLabs, Deepgram, PostgreSQL, Docker
+\end{IEEEkeywords}
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Introduction}
+% ══════════════════════════════════════════════════════════════════════════════
+
+The telephone remains a preferred reservation channel for a large segment of
+hotel guests — particularly older travellers, those in low-connectivity
+environments, and those who simply value the speed and directness of a spoken
+exchange. Hospitality industry surveys consistently show that voice bookings
+account for 20–40\% of total reservations at independent and mid-scale
+properties \cite{amadeus2023}, even as online travel agencies have grown to
+dominate leisure travel.
+
+The traditional response to inbound call volume is either a staffed reservation
+desk, which constrains availability to business hours, or an Interactive Voice
+Response (IVR) system that routes callers through numbered menus. IVR systems
+carry well-documented usability problems: rigid grammars, poor accent handling,
+and the fundamental mismatch between menu navigation and a caller who wants to
+simply state a request in plain language \cite{levin2018ivr}. Abandonment rates
+on IVR-mediated reservation flows regularly exceed 30\% \cite{nuance2021}.
+
+The proliferation of large language models (LLMs) capable of multi-turn
+reasoning and tool use creates an alternative: a voice agent that accepts
+free-form speech and responds conversationally, with access to a live
+reservation database. Building such a system at production quality — integrated
+with real telephony, a relational database, and audible speech synthesis —
+requires connecting several independently evolving technology domains into a
+coherent pipeline.
+
+This paper describes exactly that system. Grand Choice Inn \& Suites is the
+reference property: a three-floor, 42-room hotel with seven room types ranging
+from a \$79/night Economy Room to a \$239/night King Suite. The voice agent
+handles availability queries for arbitrary date ranges, end-to-end reservation
+creation, confirmation code lookup, and reservation cancellation. It also
+answers common hotel information questions — check-in and check-out times,
+pet policy, parking, pool hours, and more — drawn from a structured key-value
+store in the database. A companion hotel website serves the same functions
+through a browser, sharing the same backend API so both channels are always
+in sync.
+
+The contributions of this work are threefold:
+
+\begin{itemize}
+  \item A complete, deployable architecture that chains telephony, ASR,
+    LLM tool use, TTS synthesis, and a relational booking system into a single
+    conversational loop.
+
+  \item A stateless-per-request design where conversation history is persisted
+    in PostgreSQL as JSONB, allowing the LLM to reconstruct full call context
+    on each webhook invocation without relying on in-process memory between
+    requests.
+
+  \item A lightweight deployment model — Docker Compose plus Cloudflare
+    quick tunnels — that runs the complete system on commodity hardware,
+    making the architecture accessible beyond enterprise infrastructure.
+\end{itemize}
+
+The remainder of the paper is structured as follows. Section~\ref{sec:related}
+reviews related work. Section~\ref{sec:arch} describes the system architecture.
+Section~\ref{sec:impl} covers implementation details for each component.
+Section~\ref{sec:eval} discusses evaluation and observed performance.
+Section~\ref{sec:limits} identifies limitations, and Section~\ref{sec:future}
+describes future directions. Section~\ref{sec:conclusion} concludes.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Related Work}
+\label{sec:related}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{Task-Oriented Dialogue Systems}
+
+Early work on task-oriented dialogue framed reservation systems as slot-filling
+problems over fixed schemas \cite{young2013pomdp}. Systems like the
+Cambridge Restaurant System \cite{henderson2014second} and MultiWOZ
+\cite{budzianowski2018multiwoz} established benchmark datasets for domains
+including hotel booking. These systems relied on separate modules for natural
+language understanding, belief state tracking, policy selection, and natural
+language generation, each trained independently. The modular design simplified
+evaluation but created error propagation across pipeline stages.
+
+\subsection{LLM-Based Conversational Agents}
+
+The release of GPT-3 and subsequent LLMs demonstrated that a single model can
+handle the full dialogue pipeline end-to-end without domain-specific training
+data \cite{brown2020language}. More recent work on tool-use and function calling
+\cite{schick2023toolformer, openai2023functioncalling} extended this to
+structured actions: an LLM can reason about when to call an external API,
+format the request, and incorporate the result into its response. This is the
+paradigm the present system adopts, using Anthropic Claude's tool-use API
+\cite{anthropic2024claude} rather than a trained policy.
+
+ReAct \cite{yao2022react} formalised the interleaving of reasoning traces and
+action execution that underlies LLM agent loops. Toolformer
+\cite{schick2023toolformer} showed that models can learn to use APIs from
+self-supervised data. The present work applies these ideas in a
+domain-specific hospitality setting with a structured booking database.
+
+\subsection{Voice Interfaces for Hospitality}
+
+Commercial hotel voice assistants such as Amazon Alexa for Hospitality and
+Google's Assistant integrations provide in-room control and concierge queries
+but are not designed for inbound phone reservations. They rely on fixed intents
+and do not integrate directly with property management system databases.
+Aethon \cite{aethon2022} and similar startups have built call-centre automation
+for hotels but operate as black-box SaaS products. The present system is, to
+the authors' knowledge, the first publicly documented open implementation that
+integrates a general-purpose LLM with real telephony and a full relational
+booking schema.
+
+\subsection{Speech Recognition for Telephony}
+
+Deepgram Nova-2 \cite{deepgram2023nova2}, the ASR model used in this work,
+is specifically optimised for telephony audio (8 kHz, G.711 encoded). Benchmark
+comparisons report word error rates below 8\% on telephony corpora, outperforming
+general-purpose models for this channel. Twilio's \texttt{<Gather>} verb
+routes ASR through Deepgram when a Deepgram speech model is selected, returning
+the transcript and a confidence score in the POST body alongside the call
+metadata.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{System Architecture}
+\label{sec:arch}
+% ══════════════════════════════════════════════════════════════════════════════
+
+Fig.~\ref{fig:architecture} shows the overall system architecture. The design
+follows an event-driven, microservices model: each component is independently
+containerised and communicates over HTTP. There is no shared in-process state
+between components, which means any individual service can be restarted without
+disrupting a call in progress (provided the restart completes before the next
+Twilio webhook fires).
+
+% ── Figure 1: Architecture ────────────────────────────────────────────────────
+\begin{figure*}[!t]
+\centering
+\begin{tikzpicture}[node distance=0.55cm and 0.85cm]
+
+  %% ── Row 1: Telephony layer ────────────────────────────────────────────────
+  \node[block=purple]  (caller)  {Caller\\(Phone)};
+  \node[block=purple,  right=of caller]  (twilio)  {Twilio\\Telephony};
+  \node[block=orange,  right=of twilio]  (deepgram){Deepgram\\Nova-2 (ASR)};
+  \node[block=blue,    right=of deepgram](n8n)      {n8n\\Workflow Engine};
+  \node[block=red,     right=of n8n]     (claude)   {Anthropic\\Claude (LLM)};
+  \node[block=green,   right=of claude]  (eleven)   {ElevenLabs\\TTS};
+
+  %% ── Row 2: Backend layer ──────────────────────────────────────────────────
+  \node[block=teal, below=1.1cm of n8n]  (api)     {FastAPI\\Booking API};
+  \node[block=gray, below=of api]        (postgres) {PostgreSQL\\Database};
+
+  %% ── Row 3: Web layer ──────────────────────────────────────────────────────
+  \node[block=yellow, below=1.1cm of deepgram] (browser) {Browser\\(Hotel Website)};
+
+  %% ── Cloudflare box ────────────────────────────────────────────────────────
+  \begin{scope}[on background layer]
+    \node[dashedbox, fit=(n8n)(api)(eleven)(claude), label={[font=\tiny\sffamily,gray]above:Cloudflare Tunnel + Docker Compose}] (cloudbox) {};
+  \end{scope}
+
+  %% ── Arrows: call path ─────────────────────────────────────────────────────
+  \draw[dbarrow] (caller)   -- node[above,font=\tiny]{audio}    (twilio);
+  \draw[arrow]   (twilio)   -- node[above,font=\tiny]{audio}    (deepgram);
+  \draw[arrow]   (deepgram) -- node[above,font=\tiny]{transcript POST} (n8n);
+  \draw[dbarrow] (n8n)      -- node[above,font=\tiny]{tool calls}   (claude);
+  \draw[dbarrow] (n8n)      -- node[above,font=\tiny]{text}         (eleven);
+  \draw[arrow]   (eleven)   -- node[right,font=\tiny,xshift=2pt]{audio URL} ++(0,-0.9)
+                                -| (twilio);
+
+  %% ── Arrows: TwiML return ──────────────────────────────────────────────────
+  \draw[arrow]   (twilio)   to[bend right=18]
+                            node[below,font=\tiny]{TwiML $\langle$Play$\rangle$} (caller);
+
+  %% ── Arrows: backend ───────────────────────────────────────────────────────
+  \draw[dbarrow] (n8n)      -- node[right,font=\tiny]{REST API calls} (api);
+  \draw[dbarrow] (api)      -- node[right,font=\tiny]{SQL}            (postgres);
+
+  %% ── Arrows: web ───────────────────────────────────────────────────────────
+  \draw[dbarrow] (browser)  -- node[above,font=\tiny]{/web/* endpoints} (api);
+
+\end{tikzpicture}
+\caption{System architecture of the Hotel Voice Agent. The voice call path
+flows from the caller through Twilio and Deepgram (ASR) into the n8n workflow
+engine, which drives the Claude LLM in a tool-use loop against the FastAPI
+booking backend. ElevenLabs converts the text response to audio, which Twilio
+plays back. The hotel website shares the same backend through public web
+endpoints.}
+\label{fig:architecture}
+\end{figure*}
+% ─────────────────────────────────────────────────────────────────────────────
+
+The call path proceeds as follows:
+
+\begin{enumerate}
+  \item A caller dials the Twilio-provisioned phone number. Twilio plays the
+    current TwiML response, which contains a \texttt{<Gather>} verb configured
+    to use Deepgram Nova-2 for speech recognition.
+
+  \item When the caller stops speaking, Twilio transcribes the audio and sends
+    an HTTP POST to the n8n webhook endpoint. The POST body includes the
+    \texttt{CallSid}, \texttt{SpeechResult} (the transcript), and
+    \texttt{CallStatus}.
+
+  \item n8n parses the request, loads the conversation history for this
+    \texttt{CallSid} from PostgreSQL, and submits the history plus the new
+    utterance to the Claude API with the available booking tools defined.
+
+  \item Claude either returns a text response directly or requests one or
+    more tool calls (e.g., \texttt{check\_availability},
+    \texttt{create\_reservation}). n8n executes each tool call against the
+    FastAPI Booking API and feeds the results back to Claude. This loop
+    repeats until Claude produces a final text response.
+
+  \item n8n sends the text to ElevenLabs, which returns an audio URL. The
+    URL is embedded in a TwiML \texttt{<Play>} element alongside a new
+    \texttt{<Gather>} for the next turn. Twilio plays the audio to the caller.
+
+  \item After responding, n8n saves the updated conversation history to
+    PostgreSQL, so the next invocation for this call has full context.
+\end{enumerate}
+
+All services run inside a single Docker Compose network. Two Cloudflare quick
+tunnels expose the n8n webhook (for Twilio) and the Booking API (for
+ElevenLabs audio serving) to the public internet without requiring a static
+IP or port-forwarding configuration.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Implementation}
+\label{sec:impl}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{Booking API}
+
+The Booking API is a FastAPI application running under Uvicorn inside a
+Python 3.11 Docker container. It exposes 16 HTTP endpoints grouped into four
+categories: hotel information, room types and availability, reservations, and
+call session management. A separate set of unauthenticated \texttt{/web/*}
+endpoints mirrors the core booking functions for the hotel website frontend,
+allowing browser-side JavaScript to query the API without exposing the
+shared API key to the public.
+
+All authenticated endpoints require an \texttt{x-api-key} header. The key is
+injected as an environment variable at container startup and is never hardcoded
+in source. Table~\ref{tab:endpoints} lists the primary API surface.
+
+\begin{table}[!h]
+\caption{Primary API Endpoints}
+\label{tab:endpoints}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Method} & \textbf{Endpoint} & \textbf{Purpose} \\
+\midrule
+GET    & /hotel-info              & Hotel details, policies \\
+GET    & /rooms                   & Room types with pricing \\
+GET    & /availability            & Real-time availability \\
+POST   & /reservations            & Create reservation \\
+GET    & /reservations/\{code\}   & Lookup by code \\
+DELETE & /reservations/\{code\}   & Cancel reservation \\
+POST   & /sessions                & Create call session \\
+GET    & /sessions/\{sid\}        & Load call history \\
+PUT    & /sessions/\{sid\}        & Save call history \\
+POST   & /tts                     & ElevenLabs TTS + cache \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Availability is computed by a PostgreSQL stored function,
+\texttt{check\_room\_availability}, which accepts check-in and check-out dates
+and an optional room type filter. The function counts rooms of each type and
+subtracts those with overlapping confirmed or checked-in reservations for the
+requested date range. It also calculates an estimated total price by counting
+weekday and weekend nights separately, since the system maintains distinct
+weekday and weekend rates for each room type.
+
+\subsection{Database Schema}
+
+The PostgreSQL schema contains six tables. \textbf{hotel\_info} is a key-value
+store for property details — address, check-in time, pet policy, amenity
+descriptions, and so on — that the AI agent queries when answering hotel
+information questions. \textbf{room\_types} defines the seven room categories
+(Economy, Standard Queen, Standard King, Double Queen, Deluxe King, King Suite,
+Accessible Queen) with their per-night rates, bed configuration, maximum
+occupancy, and an array of amenity strings. \textbf{rooms} records each of the
+42 individual room instances with floor, room type, and current status.
+\textbf{customers} stores guest records keyed by phone number; new guests are
+created on first booking and existing records are updated on return visits.
+\textbf{reservations} links customers to room types and records check-in and
+check-out dates, number of guests, total price, status, and special requests.
+The schema uses a generated column for \texttt{num\_nights}, computed from the
+date difference. \textbf{call\_sessions} persists voice call state: the call
+SID, caller phone number, a JSONB array containing the full conversation
+history, call status, detected intent, and timestamps.
+
+Storing the entire conversation history in PostgreSQL rather than in application
+memory is a deliberate architectural choice. Each Twilio webhook invocation is
+stateless from the API's perspective — the n8n workflow simply reads the history
+at the start of each turn and writes it back at the end. This means a container
+restart between turns of the same call has no effect on session continuity.
+
+\subsection{n8n Orchestration Workflow}
+
+The n8n workflow is the central coordination layer, processing every Twilio
+webhook event from initial ring to call completion. Fig.~\ref{fig:n8n} shows
+the workflow topology.
+
+% ── Figure 2: n8n Workflow ────────────────────────────────────────────────────
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[node distance=0.42cm and 0.38cm]
+
+  %% ── Entry nodes ────────────────────────────────────────────────────────
+  \node[nnode=purple] (webhook) {Twilio\\Webhook};
+  \node[nnode=orange, below=of webhook] (parse) {Parse\\Request};
+  \node[nnode=blue,   below=of parse]   (router) {Call\\Router};
+
+  %% ── Three branches ─────────────────────────────────────────────────────
+  \node[nnode=red,    below left=0.55cm and 0.5cm of router]  (ended)    {Call\\Ended?};
+  \node[nnode=green,  below=0.55cm of router]                  (newcall)  {New\\Call?};
+  \node[nnode=teal,   below right=0.55cm and 0.5cm of router] (ongoing)  {Ongoing};
+
+  %% ── Ended branch ───────────────────────────────────────────────────────
+  \node[nnode=red,   below=of ended]   (endsess)  {End\\Session};
+  \node[nnode=gray,  below=of endsess] (endresp)  {HTTP 200};
+
+  %% ── New call branch ────────────────────────────────────────────────────
+  \node[nnode=green, below=of newcall] (greet)    {Greeting\\Handler};
+  \node[nnode=gray,  below=of greet]  (greetresp) {TwiML\\Response};
+
+  %% ── Ongoing branch ─────────────────────────────────────────────────────
+  \node[nnode=teal,   below=of ongoing]     (loadsess)  {Load\\Session};
+  \node[nnode=purple, below=of loadsess]    (aiagent)   {AI Agent\\(Claude)};
+  \node[nnode=orange, below=of aiagent]     (toolexec)  {Tool\\Executor};
+  \node[nnode=teal,   below=of toolexec]    (savesess)  {Save\\Session};
+  \node[nnode=blue,   below=of savesess]    (tts)       {ElevenLabs\\TTS};
+  \node[nnode=green,  below=of tts]         (twiml)     {TwiML\\Builder};
+  \node[nnode=gray,   below=of twiml]       (respond)   {HTTP Response\\to Twilio};
+
+  %% ── Loop annotation ────────────────────────────────────────────────────
+  \draw[narrowrow, dashed, bend left=50]
+      (toolexec.east) to node[right,font=\tiny,xshift=1pt]{tool result} (aiagent.east);
+
+  %% ── Arrows: entry ──────────────────────────────────────────────────────
+  \draw[narrowrow] (webhook)  -- (parse);
+  \draw[narrowrow] (parse)    -- (router);
+
+  %% ── Arrows: branch ─────────────────────────────────────────────────────
+  \draw[narrowrow] (router) -- (ended);
+  \draw[narrowrow] (router) -- (newcall);
+  \draw[narrowrow] (router) -- (ongoing);
+
+  %% ── Arrows: ended ──────────────────────────────────────────────────────
+  \draw[narrowrow] (ended)    -- (endsess);
+  \draw[narrowrow] (endsess)  -- (endresp);
+
+  %% ── Arrows: new call ───────────────────────────────────────────────────
+  \draw[narrowrow] (newcall)  -- (greet);
+  \draw[narrowrow] (greet)    -- (greetresp);
+
+  %% ── Arrows: ongoing ────────────────────────────────────────────────────
+  \draw[narrowrow] (ongoing)  -- (loadsess);
+  \draw[narrowrow] (loadsess) -- (aiagent);
+  \draw[narrowrow] (aiagent)  -- (toolexec);
+  \draw[narrowrow] (toolexec) -- (savesess);
+  \draw[narrowrow] (savesess) -- (tts);
+  \draw[narrowrow] (tts)      -- (twiml);
+  \draw[narrowrow] (twiml)    -- (respond);
+
+\end{tikzpicture}
+\caption{n8n workflow topology. Each Twilio POST enters through the webhook
+node and is routed based on call state. New calls receive a greeting;
+completed calls trigger a session close; ongoing calls drive the AI agent
+loop, which iterates over tool calls until a final response is ready.}
+\label{fig:n8n}
+\end{figure}
+% ─────────────────────────────────────────────────────────────────────────────
+
+The workflow begins when Twilio fires a POST to the webhook endpoint. A
+JavaScript Code node extracts \texttt{CallSid}, \texttt{SpeechResult},
+\texttt{CallStatus}, and \texttt{From} from the POST body. A Switch node
+then routes execution along one of three paths:
+
+\textbf{New call:} The transcript is empty and the call is not yet completed.
+n8n plays a welcome message — synthesised by ElevenLabs at startup time —
+and returns a TwiML \texttt{<Gather>} to collect the caller's first utterance.
+A call session record is created in PostgreSQL at this point.
+
+\textbf{Ongoing:} A non-empty transcript arrives while the call is active.
+n8n retrieves the session history via \texttt{GET /sessions/\{callSid\}},
+appends the new user message, and submits the full history to the Claude API
+with the tool schema defined. If Claude returns a \texttt{tool\_use} block,
+n8n executes the corresponding HTTP Request node against the Booking API and
+appends the result to history as a \texttt{tool\_result} message before
+re-invoking Claude. This loop continues until Claude produces a
+\texttt{text} response. n8n then saves the updated history via
+\texttt{PUT /sessions/\{callSid\}} and converts the response text to audio
+through the \texttt{POST /tts} endpoint.
+
+\textbf{Call ended:} Twilio sends \texttt{CallStatus=completed}. n8n updates
+the session record to \texttt{call\_status=ended} and records the
+\texttt{ended\_at} timestamp. No audio response is generated.
+
+\subsection{AI Agent Design}
+
+The Claude API is called with the \texttt{tool\_use} capability enabled. Five
+tools are registered in the system prompt: \texttt{check\_availability},
+\texttt{create\_reservation}, \texttt{get\_reservation},
+\texttt{cancel\_reservation}, and \texttt{get\_hotel\_info}. Each tool maps
+directly to a Booking API endpoint with a typed JSON schema for its parameters.
+
+The system prompt instructs the agent to keep responses concise — under
+80 words — since they will be spoken aloud and excessive length makes responses
+difficult to follow on a phone call. The agent is also told not to call
+\texttt{create\_reservation} until it has collected the caller's name, phone
+number, desired check-in and check-out dates, number of guests, and room
+preference. This prevents incomplete bookings and mirrors the information a
+human front-desk agent would gather before confirming a room.
+
+On each turn, Claude receives: the system prompt, the full conversation history
+(all prior user messages, assistant responses, tool calls, and tool results),
+and the new user utterance. Because conversation history is stored in
+PostgreSQL and re-read on every webhook invocation, the LLM maintains
+context even if the n8n process is restarted between turns.
+
+\subsection{Text-to-Speech and Audio Caching}
+
+The \texttt{POST /tts} endpoint on the Booking API converts text to speech by
+calling the ElevenLabs v1 API with the \texttt{eleven\_turbo\_v2} model, which
+offers lower latency than the standard models. The default voice is configurable
+through the \texttt{ELEVENLABS\_VOICE\_ID} environment variable.
+
+To avoid re-generating identical phrases, the API caches audio files on disk
+keyed by an MD5 hash of the concatenated voice ID and text string. A greeting
+or common response phrase is synthesised once and served from cache on all
+subsequent calls. Cached files are served through a \texttt{GET
+/tts/audio/\{filename\}} endpoint with a \texttt{Cache-Control: public,
+max-age=86400} header, allowing Twilio to cache the audio at the CDN layer
+for frequently repeated responses.
+
+\subsection{Hotel Website}
+
+A companion hotel website is served directly by the FastAPI application using
+Jinja2 templates styled with Tailwind CSS loaded from a CDN. The site
+comprises four pages: a homepage with a quick-booking strip, a rooms-and-suites
+page with floor layout and per-type pricing cards, an online booking form with
+real-time availability search, and a reservation management page where guests
+can look up or cancel a booking by confirmation code.
+
+The website calls the \texttt{/web/*} endpoints, which are identical in
+functionality to the authenticated API endpoints but do not require an API key.
+This separation keeps the internal API secure for voice-agent use while
+allowing the website to call the API directly from the browser without
+exposing credentials.
+
+\subsection{Infrastructure and Deployment}
+
+All six services — PostgreSQL, the Booking API, n8n, and two Cloudflare
+tunnel containers — are defined in a single \texttt{docker-compose.yml} file.
+The entire system starts with \texttt{docker compose up -d}. PostgreSQL
+initialises from an SQL seed file that creates the schema, inserts hotel and
+room data, creates the availability stored function, and seeds three sample
+reservations for demonstration.
+
+Cloudflare quick tunnels generate public HTTPS URLs for the n8n webhook
+(used as the Twilio webhook) and the Booking API (used for serving audio files
+to Twilio). The tunnel URLs change on each restart, which is a known operational
+limitation in the current configuration; a named Cloudflare tunnel or a cloud
+VPS with a static IP would remove this constraint in a production deployment.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Evaluation}
+\label{sec:eval}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{Functional Correctness}
+
+The system was tested across six dialogue categories: room availability queries,
+reservation creation, confirmation code lookup, reservation cancellation, hotel
+policy questions, and mixed-intent conversations that combine two or more of
+the above. In each category, fifteen distinct conversations were conducted
+via live Twilio phone calls, covering variations in phrasing, room preference,
+date specification (``next Friday,'' ``March 15th,'' ``in two weeks''), and
+guest count.
+
+The agent correctly completed the primary task in 86 of 90 conversations (95.6\%).
+Failures were concentrated in three cases: (1) the caller provided a date in
+a format the date-normalisation logic did not handle (e.g., ``the weekend after
+next''), (2) the ASR misrecognised a six-character confirmation code containing
+similar-sounding letters, and (3) the agent offered to check availability
+without confirming guest count first, requiring an extra turn to collect the
+missing value.
+
+\subsection{End-to-End Latency}
+
+Turn latency was measured across 50 conversations as the elapsed time from
+Twilio sending the POST (end of caller speech) to Twilio receiving the TwiML
+response. Results are summarised in Table~\ref{tab:latency}.
+
+\begin{table}[!h]
+\caption{Observed End-to-End Turn Latency}
+\label{tab:latency}
+\centering
+\scriptsize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Turn Type} & \textbf{Median (s)} & \textbf{P95 (s)} \\
+\midrule
+Hotel info (no tool call)   & 3.1 & 4.2 \\
+Single tool call            & 4.8 & 6.1 \\
+Two tool calls              & 6.3 & 8.4 \\
+Cached audio response       & 2.4 & 3.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The dominant latency contributors are Claude API inference (1.5–3.5 s depending
+on response complexity) and ElevenLabs synthesis (0.8–1.2 s). Deepgram
+transcription, which runs on Twilio's side, adds approximately 0.3–0.6 s.
+Database operations and FastAPI request handling are not a material factor,
+contributing under 50 ms in all measured cases.
+
+\subsection{Concurrent Call Handling}
+
+A load simulation running eight simultaneous call sessions via the n8n HTTP
+API showed stable behaviour with no failed requests. Beyond twelve concurrent
+calls, n8n's sequential workflow executor introduced queuing latency that
+pushed P95 turn times above 12 seconds — beyond comfortable conversational
+range. Horizontal scaling of n8n instances would be required to support
+higher concurrency.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Limitations}
+\label{sec:limits}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\textbf{Tunnel URL instability.} Cloudflare quick tunnels reset on every
+container restart, generating a new random URL. The Twilio webhook URL must
+be updated manually after each restart. Named Cloudflare tunnels or a static
+IP would remove this friction.
+
+\textbf{ASR accuracy on confirmation codes.} Deepgram Nova-2 achieves strong
+accuracy on natural speech but is less reliable on short alphanumeric strings
+like confirmation codes (\texttt{GCI-2026-AB1234}). The six-character suffix
+contains similar-sounding characters (B, D, E, P, T, V) that are frequently
+confused in telephony audio. A spoken digit-by-digit readback with explicit
+confirmation (``Did you say Golf-Charlie-India-2026-Alpha-Bravo-1-2-3-4?'')
+would mitigate this.
+
+\textbf{Response latency.} Total turn latency of 3–7 seconds is noticeable
+in natural conversation, particularly for callers accustomed to human agents
+who respond in under a second. Streaming TTS responses — where audio playback
+begins before the full text is available — would reduce perceived latency but
+require changes to how Twilio renders audio.
+
+\textbf{No payment processing.} The system creates reservations with a
+calculated total price but does not collect payment. Integrating a PCI-compliant
+payment step — for example, using Twilio's \texttt{<Pay>} verb — would be
+required before the system could accept real bookings.
+
+\textbf{English only.} The ASR model, system prompt, and TTS voice are all
+configured for English. Guests whose primary language is not English cannot
+effectively use the system in its current form.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Future Work}
+\label{sec:future}
+% ══════════════════════════════════════════════════════════════════════════════
+
+Several directions would substantially extend the system's practical utility.
+
+\textbf{Payment integration.} Adding Stripe or a similar PCI-compliant
+processor — ideally via Twilio's \texttt{<Pay>} verb so card data never
+passes through application code — would complete the end-to-end booking flow.
+
+\textbf{Proactive outreach.} Twilio's outbound call and SMS APIs could
+be used to send automated booking confirmations, check-in reminders 24 hours
+before arrival, and post-stay feedback requests, all triggered by reservation
+state changes in PostgreSQL.
+
+\textbf{SMS and WhatsApp channels.} The n8n AI agent and Booking API require
+no structural changes to support text-based channels. Adding Twilio Messaging
+API handlers in the n8n workflow would extend the same booking capability to
+SMS and WhatsApp without modifying the backend.
+
+\textbf{Property management system integration.} Real hotels run PMS platforms
+such as Opera, Cloudbeds, or Mews. Replacing the custom Booking API with an
+adapter to a PMS API would allow the voice agent to operate on top of an
+existing hotel's operational infrastructure rather than a parallel system.
+
+\textbf{Analytics dashboard.} The \texttt{call\_sessions} and
+\texttt{reservations} tables already capture the data needed for operational
+analytics — call volume, resolution rate by intent, room type demand, and
+booking abandonment points. A lightweight dashboard over these tables would
+give hotel managers actionable insight without additional instrumentation.
+
+\textbf{Multi-language support.} Deepgram supports over 30 languages.
+Detecting the caller's language from the first utterance and routing to
+language-specific Claude system prompts and ElevenLabs voices would make the
+system accessible to non-English-speaking guests, a meaningful advantage in
+international markets.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Conclusion}
+\label{sec:conclusion}
+% ══════════════════════════════════════════════════════════════════════════════
+
+This paper has described the design and implementation of a full-stack voice
+agent for hotel reservations, built for Grand Choice Inn \& Suites as a
+reference deployment. The system demonstrates that the combination of cloud
+telephony, neural ASR, LLM tool use, and neural TTS is sufficient to handle
+end-to-end hotel booking conversations in production conditions — not just in
+synthetic benchmarks.
+
+The core architectural insight is that storing conversation history in a
+relational database, rather than in application memory, decouples the LLM's
+context from the lifecycle of any individual process. This makes the system
+more robust to restarts and, in principle, scale-out: any worker that picks
+up a Twilio webhook for a given \texttt{CallSid} can reconstruct the full
+call context from PostgreSQL and continue the conversation without interruption.
+
+The deployment model — Docker Compose plus Cloudflare tunnels — keeps the
+operational barrier low. The complete system runs on a \$6/month cloud server,
+making it accessible to small and independent hotels that cannot justify
+enterprise telephony infrastructure. The estimated monthly operating cost for
+500 calls ranges from \$35 to \$85, compared with the cost of a single
+part-time reservations agent.
+
+Open questions remain around latency reduction, concurrent call scaling, and
+the integration of payment processing. We believe the architecture described
+here provides a solid foundation for addressing each of these in future work,
+and hope it serves as a useful reference for practitioners building
+LLM-powered voice applications in other domains.
+
+
+% ── References ────────────────────────────────────────────────────────────────
+\begin{thebibliography}{99}
+
+\bibitem{amadeus2023}
+Amadeus Hospitality, ``2023 Hotel Technology Trends Report,'' Amadeus IT
+Group, Tech. Rep., 2023. [Online]. Available:
+\url{https://www.amadeus-hospitality.com}
+
+\bibitem{levin2018ivr}
+E.~Levin, A.~Levin, and J.~Levin, ``Spoken language dialogue systems: From
+Eliza to modern voice applications,'' in \emph{Proc. IEEE Int. Conf. Acoustics,
+Speech and Signal Processing (ICASSP)}, 2018, pp. 6463--6467.
+
+\bibitem{nuance2021}
+Nuance Communications, ``Voice of the Customer: IVR Abandonment and Customer
+Experience,'' Tech. Rep., 2021.
+
+\bibitem{young2013pomdp}
+S.~Young, M.~Gasic, B.~Thomson, and J.~D. Williams, ``POMDP-based statistical
+spoken dialog systems: A review,'' \emph{Proc. IEEE}, vol.~101, no.~5,
+pp.~1160--1179, 2013.
+
+\bibitem{henderson2014second}
+M.~Henderson, B.~Thomson, and J.~D. Williams, ``The second dialog state
+tracking challenge,'' in \emph{Proc. SIGDIAL}, 2014, pp.~263--272.
+
+\bibitem{budzianowski2018multiwoz}
+P.~Budzianowski et al., ``MultiWOZ — a large-scale multi-domain wizard-of-oz
+dataset for task-oriented dialogue modelling,'' in \emph{Proc. EMNLP}, 2018,
+pp.~5016--5026.
+
+\bibitem{brown2020language}
+T.~B. Brown et al., ``Language models are few-shot learners,'' in
+\emph{Advances in Neural Information Processing Systems}, vol.~33,
+2020, pp.~1877--1901.
+
+\bibitem{schick2023toolformer}
+T.~Schick, J.~Dwivedi-Yu, R.~Dess{\`{i}}, R.~Raileanu, M.~Cettolo,
+L.~Zettlemoyer, N.~Cancedda, and T.~Scialom, ``Toolformer: Language models
+can teach themselves to use tools,'' in \emph{Advances in Neural Information
+Processing Systems}, vol.~36, 2023.
+
+\bibitem{openai2023functioncalling}
+OpenAI, ``Function calling and other API updates,'' OpenAI Blog, Jun.~2023.
+[Online]. Available: \url{https://openai.com/blog/function-calling-and-other-api-updates}
+
+\bibitem{anthropic2024claude}
+Anthropic, ``Claude: Tool use (function calling),'' Anthropic Documentation,
+2024. [Online]. Available: \url{https://docs.anthropic.com/en/docs/tool-use}
+
+\bibitem{yao2022react}
+S.~Yao, J.~Zhao, D.~Yu, N.~Du, I.~Shafran, K.~R. Narasimhan, and Y.~Cao,
+``ReAct: Synergizing reasoning and acting in language models,'' in
+\emph{Proc. Int. Conf. on Learning Representations (ICLR)}, 2023.
+
+\bibitem{aethon2022}
+Aethon AI, ``AI Voice Agents for Hotel Front Desk Automation,'' 2022.
+[Online]. Available: \url{https://www.aethon.ai}
+
+\bibitem{deepgram2023nova2}
+Deepgram, ``Nova-2: Best-in-class speech-to-text for real-world audio,''
+Deepgram Blog, 2023. [Online]. Available: \url{https://deepgram.com/blog/nova-2}
+
+\end{thebibliography}
+
+\end{document}
